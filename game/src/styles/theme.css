@@ -1,0 +1,803 @@
+/* V2 Cinema Dark Obsidian x Kiln Amber x Bone Ceramic Theme (100% tokenized, zero slop) */
+:root {
+  --parchment: #F2E8DA;
+  --bone-ceramic: #FBF7F0;
+  --kiln-obsidian: #0E0B09;
+  --kiln-charcoal: #15100D;
+  --kiln-surface: #181310;
+  --kiln-surface-elevated: #221A15;
+  --kiln-surface-hover: #2E221B;
+  --kiln-track: #0C0907;
+  --kiln-border: rgba(219, 161, 60, 0.34);
+  --kiln-border-subtle: rgba(242, 232, 218, 0.16);
+  --kiln-border-strong: rgba(247, 221, 160, 0.72);
+  --kiln-header-bg: rgba(14, 11, 9, 0.92);
+  --kiln-panel-bg: rgba(16, 12, 10, 0.88);
+  --kiln-dock-bg: rgba(14, 11, 9, 0.94);
+  --kiln-backdrop: rgba(10, 8, 6, 0.88);
+  --kiln-shadow-ink: rgba(10, 7, 5, 0.95);
+  --molten-ember: #E65A28;
+  --ember-deep: #9E4220;
+  --cinnabar: #B83A22;
+  --kiln-gold: #DBA13C;
+  --gold-luminous: #F7DDA0;
+  --gold-tint: rgba(219, 161, 60, 0.14);
+  --gold-tint-strong: rgba(219, 161, 60, 0.24);
+  --ember-tint: rgba(230, 90, 40, 0.22);
+  --olive-moss: #4A5D3F;
+  --olive-bright: #657A54;
+  --olive-band: rgba(101, 122, 84, 0.42);
+  --ash-muted: #B6A896;
+  --dot-inactive: rgba(242, 232, 218, 0.24);
+  --dot-rim: rgba(251, 247, 240, 0.52);
+
+  --font-display: 'Baskerville', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --font-body: 'Iowan Old Style', 'Palatino', Georgia, serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: var(--kiln-obsidian);
+  color: var(--parchment);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.65rem 1rem;
+  background: var(--kiln-gold);
+  color: var(--kiln-obsidian);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 3px;
+}
+
+:where(a:any-link, button, input, select):focus-visible {
+  outline: 3px solid var(--gold-luminous);
+  outline-offset: 3px;
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+  min-block-size: 34px;
+  min-inline-size: 34px;
+}
+
+/* Application Shell with 2.39:1 Cinemascope obsidian framing */
+.app-shell {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow-x: hidden;
+  background: var(--kiln-obsidian);
+  border-top: 2px solid var(--kiln-border);
+  border-bottom: 2px solid var(--kiln-border);
+}
+
+/* Full-bleed Oil-Painting + Live Shader Canvas Backdrop */
+.kiln-canvas-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.kiln-canvas-layer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Top Obsidian Cinema Header Bar */
+.top-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.58rem 1.4rem;
+  background: var(--kiln-header-bg);
+  border-bottom: 1px solid var(--kiln-border);
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.78rem;
+}
+
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.06rem, 1.75vw, 1.36rem);
+  font-weight: 600;
+  color: var(--bone-ceramic);
+}
+
+.brand-subline {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--kiln-gold);
+}
+
+.header-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.temp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.34rem 0.76rem;
+  border-radius: 3px;
+  background: var(--kiln-surface);
+  border: 1px solid var(--kiln-border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--bone-ceramic);
+}
+
+.temp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--molten-ember);
+}
+
+.temp-zone-tag {
+  font-family: var(--font-ui);
+  color: var(--kiln-gold);
+  font-size: 0.74rem;
+}
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border);
+  background: var(--kiln-surface);
+  color: var(--parchment);
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.nav-btn:hover {
+  border-color: var(--gold-luminous);
+  background: var(--kiln-surface-hover);
+}
+
+.nav-btn[aria-pressed='true'] {
+  border-color: var(--kiln-gold);
+  background: var(--gold-tint-strong);
+  color: var(--gold-luminous);
+}
+
+/* Main Stage Grid — Unobstructed center viewport for the oil paintings */
+.stage-main {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0.28rem clamp(1rem, 2.4vw, 2rem) 0.55rem;
+  max-width: 1360px;
+  width: 100%;
+  margin: 0 auto;
+  gap: 0.36rem;
+}
+
+.scene-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.scene-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.38rem, 2.2vw, 1.9rem);
+  font-weight: 600;
+  color: var(--bone-ceramic);
+  text-shadow: 0 2px 18px var(--kiln-shadow-ink);
+}
+
+.scene-location {
+  margin: 0.08rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--parchment);
+  text-shadow: 0 1px 10px var(--kiln-shadow-ink);
+}
+
+.act-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.act-dot {
+  width: 26px;
+  height: 3px;
+  background: var(--dot-inactive);
+  transition: background-color 220ms ease;
+}
+
+.act-dot.done {
+  background: var(--olive-bright);
+}
+
+.act-dot.active {
+  background: var(--kiln-gold);
+}
+
+/* Crisp Solid-Dark Edge Panels leaving full center frame open */
+.kiln-mid-band {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) 1fr minmax(220px, 260px);
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 175px;
+}
+
+.side-panel {
+  background: var(--kiln-panel-bg);
+  border: 1px solid var(--kiln-border);
+  border-radius: 4px;
+  padding: 0.58rem 0.78rem;
+}
+
+.panel-heading {
+  margin: 0 0 0.42rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--kiln-gold);
+}
+
+.thermal-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.34rem;
+}
+
+.thermal-value {
+  font-family: var(--font-mono);
+  font-size: 1.46rem;
+  font-weight: 700;
+  color: var(--bone-ceramic);
+}
+
+.thermal-target {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ash-muted);
+}
+
+.thermal-track {
+  position: relative;
+  height: 8px;
+  background: var(--kiln-track);
+  border: 1px solid var(--kiln-border-subtle);
+  overflow: hidden;
+  margin-bottom: 0.52rem;
+}
+
+.thermal-target-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--olive-band);
+  border-inline: 1px solid var(--dot-rim);
+}
+
+.thermal-fill {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--ember-deep) 0%, var(--molten-ember) 60%, var(--gold-luminous) 100%);
+  transition: transform 180ms linear;
+}
+
+.stress-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  color: var(--ash-muted);
+  margin-bottom: 0.56rem;
+}
+
+.stress-warn {
+  color: var(--molten-ember);
+  font-weight: 700;
+}
+
+.kiln-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.action-btn {
+  padding: 0.45rem 0.6rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border);
+  background: var(--kiln-surface-elevated);
+  color: var(--bone-ceramic);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.action-btn:hover {
+  border-color: var(--gold-luminous);
+  background: var(--kiln-surface-hover);
+}
+
+.action-btn.primary {
+  background: var(--cinnabar);
+  border-color: var(--kiln-border-strong);
+  color: var(--bone-ceramic);
+}
+
+.action-btn.primary:hover {
+  background: var(--molten-ember);
+}
+
+.echo-btn {
+  margin-top: 0.46rem;
+  width: 100%;
+  padding: 0.42rem 0.65rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border);
+  background: var(--gold-tint);
+  color: var(--gold-luminous);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.echo-btn:hover {
+  background: var(--gold-tint-strong);
+}
+
+/* Glaze Mineral Mixer */
+.glaze-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.5rem;
+}
+
+.glaze-swatch-dual {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gold-luminous);
+  flex-shrink: 0;
+}
+
+.glaze-blend-name {
+  font-family: var(--font-display);
+  font-size: 0.94rem;
+  color: var(--bone-ceramic);
+  line-height: 1.2;
+}
+
+.glaze-blend-note {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--ash-muted);
+  margin: 0.12rem 0 0;
+}
+
+.mineral-group-label {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ash-muted);
+  margin: 0.36rem 0 0.24rem;
+}
+
+.mineral-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.34rem;
+}
+
+.mineral-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border-subtle);
+  background: var(--kiln-surface);
+  color: var(--parchment);
+  font-size: 0.74rem;
+  text-align: left;
+}
+
+.mineral-chip[aria-pressed='true'] {
+  border-color: var(--gold-luminous);
+  background: var(--gold-tint-strong);
+  color: var(--bone-ceramic);
+}
+
+.mineral-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid var(--dot-rim);
+}
+
+/* Bottom Dark Cinema Subtitle & Choice Dock */
+.narrative-dock {
+  background: var(--kiln-dock-bg);
+  border: 1px solid var(--kiln-border);
+  border-radius: 4px;
+  padding: 0.66rem 1.08rem 0.68rem;
+}
+
+.subtitle-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-bottom: 0.32rem;
+}
+
+.speaker-tag {
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--kiln-gold);
+}
+
+.vo-badge {
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  color: var(--ash-muted);
+}
+
+.narrative-prose {
+  margin: 0 0 0.4rem;
+  font-size: clamp(0.95rem, 1.12vw, 1.04rem);
+  line-height: 1.48;
+  color: var(--bone-ceramic);
+}
+
+.echo-quote {
+  margin: 0 0 0.42rem;
+  padding: 0.36rem 0.72rem;
+  border-left: 2px solid var(--kiln-gold);
+  background: var(--gold-tint);
+  font-style: italic;
+  font-size: 0.84rem;
+  color: var(--gold-luminous);
+}
+
+.hint-line {
+  margin: 0 0 0.48rem;
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  color: var(--ash-muted);
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.52rem;
+}
+
+.choice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.16rem;
+  padding: 0.56rem 0.78rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border);
+  background: var(--kiln-surface-elevated);
+  color: var(--parchment);
+  text-align: left;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.choice-card:hover {
+  border-color: var(--gold-luminous);
+  background: var(--kiln-surface-hover);
+}
+
+.choice-card.selected {
+  border-color: var(--molten-ember);
+  background: var(--ember-tint);
+}
+
+.choice-tag {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--kiln-gold);
+}
+
+.choice-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--bone-ceramic);
+}
+
+.choice-detail {
+  font-family: var(--font-body);
+  font-size: 0.79rem;
+  line-height: 1.38;
+  color: var(--ash-muted);
+}
+
+.dock-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.42rem;
+  padding-top: 0.42rem;
+  border-top: 1px solid var(--kiln-border-subtle);
+}
+
+.telemetry-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ash-muted);
+}
+
+.advance-btn {
+  padding: 0.48rem 1.25rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border-strong);
+  background: var(--cinnabar);
+  color: var(--bone-ceramic);
+  font-size: 0.84rem;
+  font-weight: 600;
+  transition: background-color 150ms ease;
+}
+
+.advance-btn:hover:not(:disabled) {
+  background: var(--molten-ember);
+}
+
+.advance-btn[aria-disabled='true'] {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+/* Native <dialog> Modals */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: var(--kiln-backdrop);
+}
+
+.kiln-dialog {
+  padding: 0;
+  border: 1px solid var(--kiln-border-strong);
+  border-radius: 4px;
+  background: var(--kiln-charcoal);
+  color: var(--parchment);
+  max-width: min(94vw, 940px);
+  width: 100%;
+  max-height: 90dvh;
+  overflow: auto;
+}
+
+.kiln-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.35rem;
+  border-bottom: 1px solid var(--kiln-border);
+}
+
+.dialog-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.42rem;
+  color: var(--bone-ceramic);
+}
+
+.dialog-subline {
+  margin: 0.16rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  color: var(--kiln-gold);
+}
+
+.dialog-body {
+  padding: 1.2rem 1.35rem 1.35rem;
+}
+
+.ending-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 1.4rem;
+  align-items: start;
+}
+
+.relic-preview-canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border-strong);
+  display: block;
+}
+
+.ending-epigraph {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.18rem;
+  color: var(--gold-luminous);
+}
+
+.ending-body-p {
+  margin: 0 0 0.82rem;
+  color: var(--parchment);
+  font-size: 0.96rem;
+}
+
+.ending-meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.95rem 0 1.15rem;
+  font-size: 0.84rem;
+}
+
+.ending-meta-table th,
+.ending-meta-table td {
+  text-align: left;
+  padding: 0.44rem 0.6rem;
+  border-bottom: 1px solid var(--kiln-border-subtle);
+}
+
+.ending-meta-table th {
+  color: var(--kiln-gold);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.chapter-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.1rem;
+}
+
+.chapter-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border);
+  background: var(--kiln-surface);
+  color: var(--parchment);
+}
+
+.chapter-btn:hover {
+  border-color: var(--gold-luminous);
+  background: var(--kiln-surface-hover);
+}
+
+.manifest-list {
+  max-height: 210px;
+  overflow: auto;
+  border: 1px solid var(--kiln-border-subtle);
+  border-radius: 3px;
+  padding: 0.65rem 0.85rem;
+  background: var(--kiln-track);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ash-muted);
+}
+
+.manifest-row {
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--kiln-border-subtle);
+}
+
+@media (max-width: 960px) {
+  .kiln-mid-band {
+    grid-template-columns: 1fr;
+    min-height: 160px;
+  }
+
+  .ending-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

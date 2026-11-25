@@ -1,0 +1,15 @@
+{
+  "name": "last-kiln-film-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic 1920x1080 24fps HTML5 Canvas + Playwright + FFmpeg animated short film renderer for The Last Kiln of Ember Valley.",
+  "scripts": {
+    "render:frames": "node render_film.mjs",
+    "render:audio": "python3 build_audio.py",
+    "render:all": "python3 build_audio.py && node render_film.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.52.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "the-last-kiln-of-ember-valley",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Playable interactive narrative web game for The Chroma Awards Season 2 — The Last Kiln of Ember Valley.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify:playthrough": "node scripts/verify-playthrough.mjs"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "playwright-core": "^1.52.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "vitest": "^3.1.1"
+  }
+}

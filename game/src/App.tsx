@@ -13,6 +13,7 @@ import {
 import { KilnAudioEngine } from './engine/audioEngine';
 import {
   CANONICAL_ENDING_PATHS,
+  computeGlazeBlend,
   createInitialKilnState,
   getKilnZoneLabel,
   getNextScene,
@@ -21,6 +22,7 @@ import {
 } from './engine/kilnPhysics';
 import {
   applyKintsugiStroke,
+  computeKintsugiCraftReport,
   generateKintsugiSkeleton,
   traceNextKintsugiBranch,
   type KintsugiSession,
@@ -54,6 +56,9 @@ export function App() {
   }
   const stateRef = useRef<KilnState>(state);
   stateRef.current = state;
+  const kintsugiRef = useRef<KintsugiSession>(kintsugi);
+  kintsugiRef.current = kintsugi;
+  const gradeSChimedRef = useRef(false);
 
   useEffect(() => {
     const engine = audioRef.current;
@@ -123,7 +128,7 @@ export function App() {
 
   const handleStoke = useCallback(() => {
     setBellowsSignal((n) => n + 1);
-    audioRef.current?.playBellowsWhoosh();
+    audioRef.current?.playBellowsWhoosh(stateRef.current.temperatureC);
     setState((prev) => {
       const stepped = stepKilnTemperature(prev, 0.85, 'stoke');
       return {
@@ -135,17 +140,18 @@ export function App() {
   }, []);
 
   const handleToggleFlue = useCallback(() => {
-    audioRef.current?.playCeramicChime(2);
+    const nextFlue = !stateRef.current.flueOpen;
+    audioRef.current?.playFlueDamper(nextFlue);
     setState((prev) => {
-      const nextFlue = !prev.flueOpen;
+      const updatedFlue = !prev.flueOpen;
       const stepped = stepKilnTemperature(
-        { ...prev, flueOpen: nextFlue },
+        { ...prev, flueOpen: updatedFlue },
         0.7,
-        nextFlue ? 'vent' : 'damp',
+        updatedFlue ? 'vent' : 'damp',
       );
       return {
         ...prev,
-        flueOpen: nextFlue,
+        flueOpen: updatedFlue,
         ...stepped,
         tempHistory: recordTempPoint(prev, stepped.temperatureC, stepped.thermalStress),
       };
@@ -166,7 +172,7 @@ export function App() {
 
   const handleSelectPrimaryGlaze = useCallback((mineral: GlazeMineralId) => {
     setGlazeSignal((n) => n + 1);
-    audioRef.current?.playCeramicChime(1);
+    audioRef.current?.playGlazeFoley(mineral);
     setState((prev) => ({
       ...prev,
       primaryGlaze: mineral,
@@ -176,7 +182,7 @@ export function App() {
 
   const handleSelectSecondaryGlaze = useCallback((mineral: GlazeMineralId) => {
     setGlazeSignal((n) => n + 1);
-    audioRef.current?.playCeramicChime(4);
+    audioRef.current?.playGlazeFoley(mineral);
     setState((prev) => ({
       ...prev,
       secondaryGlaze: mineral,
@@ -184,27 +190,47 @@ export function App() {
     }));
   }, []);
 
-  const handleKintsugiStroke = useCallback(
-    (toX: number, toY: number, fromX?: number, fromY?: number) => {
-      setKintsugi((prev) => {
-        const next = applyKintsugiStroke(prev, toX, toY, fromX, fromY);
-        if (next.coveragePct > prev.coveragePct && next.coveragePct % 10 === 0) {
-          audioRef.current?.playCeramicChime(6);
-        }
-        return next;
-      });
+  const triggerKintsugiAudioFeedback = useCallback(
+    (prev: KintsugiSession, next: KintsugiSession) => {
+      if (next.coveragePct <= prev.coveragePct) return;
+      const curState = stateRef.current;
+      const blendName = computeGlazeBlend(curState.primaryGlaze, curState.secondaryGlaze).blendName;
+      const report = computeKintsugiCraftReport(next, blendName, curState.peakTempC);
+      if (!gradeSChimedRef.current && report.grade === 'S') {
+        gradeSChimedRef.current = true;
+        audioRef.current?.playGradeSBell();
+      } else {
+        audioRef.current?.playKintsugiGoldDust(next.coveragePct, next.precisionPct);
+      }
     },
     [],
   );
 
+  const handleKintsugiStroke = useCallback(
+    (toX: number, toY: number, fromX?: number, fromY?: number) => {
+      const prev = kintsugiRef.current;
+      const next = applyKintsugiStroke(prev, toX, toY, fromX, fromY);
+      kintsugiRef.current = next;
+      setKintsugi(next);
+      triggerKintsugiAudioFeedback(prev, next);
+    },
+    [triggerKintsugiAudioFeedback],
+  );
+
   const handleTraceNextKintsugi = useCallback(() => {
-    audioRef.current?.playCeramicChime(6);
-    setKintsugi((prev) => traceNextKintsugiBranch(prev));
-  }, []);
+    const prev = kintsugiRef.current;
+    const next = traceNextKintsugiBranch(prev);
+    kintsugiRef.current = next;
+    setKintsugi(next);
+    triggerKintsugiAudioFeedback(prev, next);
+  }, [triggerKintsugiAudioFeedback]);
 
   const handleResetKintsugi = useCallback(() => {
+    gradeSChimedRef.current = false;
     audioRef.current?.playCeramicChime(0);
-    setKintsugi((prev) => generateKintsugiSkeleton(`reset:${prev.seed}`));
+    const fresh = generateKintsugiSkeleton(`reset:${kintsugiRef.current.seed}`);
+    kintsugiRef.current = fresh;
+    setKintsugi(fresh);
   }, []);
 
   const handleChooseOne = useCallback((choice: ChoiceOneId) => {
@@ -256,11 +282,13 @@ export function App() {
     if (nextSceneId === 'stoking' && adjustedTemp < 960) adjustedTemp = 995;
     if (nextSceneId === 'vitrification') {
       if (adjustedTemp < 1155) adjustedTemp = 1185;
-      setKintsugi(
-        generateKintsugiSkeleton(
-          `${prev.primaryGlaze}+${prev.secondaryGlaze}:${Math.round(Math.max(prev.peakTempC, adjustedTemp))}`,
-        ),
+      gradeSChimedRef.current = false;
+      const freshSkeleton = generateKintsugiSkeleton(
+        `${prev.primaryGlaze}+${prev.secondaryGlaze}:${Math.round(Math.max(prev.peakTempC, adjustedTemp))}`,
       );
+      kintsugiRef.current = freshSkeleton;
+      setKintsugi(freshSkeleton);
+      audioRef.current?.playCeramicFracture();
     }
     if (nextSceneId === 'unsealing') adjustedTemp = 665;
 
@@ -302,7 +330,11 @@ export function App() {
     };
     const nextTemp = defaultTempByScene[targetScene];
     if (targetScene === 'vitrification') {
-      setKintsugi(generateKintsugiSkeleton(`jump:${nextTemp}`));
+      gradeSChimedRef.current = false;
+      const jumpedSkeleton = generateKintsugiSkeleton(`jump:${nextTemp}`);
+      kintsugiRef.current = jumpedSkeleton;
+      setKintsugi(jumpedSkeleton);
+      audioRef.current?.playCeramicFracture();
     }
     setState((prev) => ({
       ...prev,
@@ -358,9 +390,12 @@ export function App() {
 
   const handleReplay = useCallback(() => {
     setEndingModalOpen(false);
+    gradeSChimedRef.current = false;
     const fresh = createInitialKilnState();
     setState(fresh);
-    setKintsugi(generateKintsugiSkeleton('ochre+cinnabar:1185'));
+    const freshKintsugi = generateKintsugiSkeleton('ochre+cinnabar:1185');
+    kintsugiRef.current = freshKintsugi;
+    setKintsugi(freshKintsugi);
     setActiveCueId('vo_act1_hearth');
     audioRef.current?.triggerVoiceCue('vo_act1_hearth');
   }, []);
@@ -418,7 +453,7 @@ export function App() {
             onClick={handleToggleAudio}
             data-testid="audio-toggle-btn"
           >
-            {audioOn ? 'Studio Voice: On' : 'Play Studio Voice'}
+            {audioOn ? 'Audio & Foley: On' : 'Play Voice & Foley'}
           </button>
 
           <button

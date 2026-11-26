@@ -135,10 +135,13 @@ async function main() {
       throw new Error(`Canvas check failed: ${JSON.stringify(canvasCheck)}`);
     }
 
-    // Shot 1: Act I — The Cooling Hearth (listen to echo & stoke bellows)
+    // Shot 1: Act I — Enable Audio & Foley toggle, listen to echo, stoke bellows & vent flue
+    await page.getByTestId('audio-toggle-btn').click();
     await page.getByTestId('listen-echo-btn').click();
     await page.getByTestId('stoke-bellows-btn').click();
     await page.getByTestId('stoke-bellows-btn').click();
+    await page.getByTestId('toggle-flue-btn').click();
+    await page.getByTestId('toggle-flue-btn').click();
     await page.waitForTimeout(350);
     await page.screenshot({
       path: path.join(materialsDir, 'game_shot_01_hearth_title.png'),
@@ -146,6 +149,10 @@ async function main() {
     });
     await page.screenshot({
       path: path.join(shotsDir, 'after_act1_hearth.png'),
+      type: 'png',
+    });
+    await page.screenshot({
+      path: path.join(shotsDir, 'v5_after_act1_hearth.png'),
       type: 'png',
     });
 
@@ -221,6 +228,10 @@ async function main() {
 
     await page.screenshot({
       path: path.join(shotsDir, 'after_act4_kintsugi.png'),
+      type: 'png',
+    });
+    await page.screenshot({
+      path: path.join(shotsDir, 'v5_after_act4_kintsugi.png'),
       type: 'png',
     });
 

@@ -1,11 +1,12 @@
+import { KilnFoleySynth } from '../audio/kilnFoley';
 import { AUDIO_MANIFEST_BY_ID } from '../data/audioManifest';
-import type { VoiceCueSpec } from '../types/game';
+import type { GlazeMineralId, VoiceCueSpec } from '../types/game';
 
 /**
- * V2 Studio Voiceover + Procedural WebAudio Ambient Cello & Kiln Foley Engine.
+ * V5 Studio Voiceover + Procedural WebAudio Ambient Cello & Kiln Foley Engine.
  * Plays bundled Zyphra/ZONOS3-Mini studio English MP3 narrations (`./audio/shot1_valley.mp3`..
- * `./audio/shot4_kintsugi_dawn.mp3`) with smooth automatic ducking of the live WebAudio
- * cello hearth bed and pine-ember crackles.
+ * `./audio/shot4_kintsugi_dawn.mp3`) alongside procedural wood-kiln bellows, cast-iron flue
+ * damper, mineral glaze, and live Act IV Kintsugi gold-leaf shimmer Foley (`KilnFoleySynth`).
  */
 export class KilnAudioEngine {
   private ctx: AudioContext | null = null;
@@ -20,6 +21,7 @@ export class KilnAudioEngine {
   private activeVoiceAudio: HTMLAudioElement | null = null;
   private lastPlayedPath = '';
   private activeCue: VoiceCueSpec | null = null;
+  private readonly foley = new KilnFoleySynth();
 
   public isEnabled(): boolean {
     return this.enabled;
@@ -98,6 +100,7 @@ export class KilnAudioEngine {
   public disable(): void {
     this.enabled = false;
     this.stopCrackleLoop();
+    this.foley.resetCooldown();
     if (this.activeVoiceAudio) {
       this.activeVoiceAudio.pause();
       this.activeVoiceAudio = null;
@@ -116,37 +119,34 @@ export class KilnAudioEngine {
     this.droneOscB.frequency.setTargetAtTime(110 + norm * 2.2, this.ctx.currentTime, 0.4);
   }
 
-  public playBellowsWhoosh(): void {
-    if (!this.enabled || !this.ctx || !this.masterGain) return;
-    const now = this.ctx.currentTime;
-    const dur = 0.52;
-    const buffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < data.length; i += 1) {
-      const white = Math.random() * 2 - 1;
-      last = (last + 0.04 * white) / 1.04;
-      data[i] = last * 3.4;
-    }
-    const src = this.ctx.createBufferSource();
-    src.buffer = buffer;
+  public playBellowsWhoosh(tempC?: number): boolean {
+    if (!this.enabled) return false;
+    return this.foley.playBellowsStoke(this.ctx, this.masterGain, tempC ?? this.currentTempC);
+  }
 
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(185, now);
-    filter.frequency.exponentialRampToValueAtTime(510, now + 0.22);
-    filter.frequency.exponentialRampToValueAtTime(135, now + dur);
-    filter.Q.value = 1.6;
+  public playFlueDamper(flueOpen: boolean): boolean {
+    if (!this.enabled) return false;
+    return this.foley.playFlueVent(this.ctx, this.masterGain, flueOpen);
+  }
 
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.42, now + 0.14);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  public playGlazeFoley(mineral: GlazeMineralId): boolean {
+    if (!this.enabled) return false;
+    return this.foley.playGlazeMix(this.ctx, this.masterGain, mineral);
+  }
 
-    src.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.masterGain);
-    src.start(now);
+  public playKintsugiGoldDust(coveragePct: number, precisionPct: number): boolean {
+    if (!this.enabled) return false;
+    return this.foley.playKintsugiBrushShimmer(this.ctx, this.masterGain, coveragePct, precisionPct);
+  }
+
+  public playCeramicFracture(): boolean {
+    if (!this.enabled) return false;
+    return this.foley.playCeramicFractureSnap(this.ctx, this.masterGain);
+  }
+
+  public playGradeSBell(): boolean {
+    if (!this.enabled) return false;
+    return this.foley.playGradeSBronzeBell(this.ctx, this.masterGain);
   }
 
   public playCeramicChime(stepIndex = 0): void {

@@ -23,6 +23,14 @@ import {
   stepKilnTemperature,
 } from '../kilnPhysics';
 import {
+  computeBellowsAcoustics,
+  computeKintsugiShimmerParams,
+  KINTSUGI_SHIMMER_SCALE_HZ,
+  KilnFoleySynth,
+  type MinimalAudioContextLike,
+} from '../../audio/kilnFoley';
+import { KilnAudioEngine } from '../audioEngine';
+import {
   applyKintsugiStroke,
   computeBlackbodyRadiation,
   computeKintsugiCraftReport,
@@ -317,5 +325,168 @@ describe('V4 Interactive Kintsugi fracture engine & 1300C blackbody thermal curv
     session = traceNextKintsugiBranch(session); // 100% coverage
     const sloppyHighCoverage = { ...session, precisionPct: 50 };
     expect(computeKintsugiCraftReport(sloppyHighCoverage, 'Ash', 1100).grade).toBe('A');
+  });
+});
+
+function createRecordingAudioContext(initialState: 'running' | 'suspended' | 'closed' = 'running') {
+  let now = 1.0;
+  const startedOscFreqs: number[] = [];
+  const bufferStarts: number[] = [];
+  const makeParam = (recordFreq = false) => ({
+    value: 0,
+    setValueAtTime: (val: number) => {
+      if (recordFreq) startedOscFreqs.push(val);
+    },
+    linearRampToValueAtTime: () => {},
+    exponentialRampToValueAtTime: () => {},
+    cancelScheduledValues: () => {},
+    setTargetAtTime: () => {},
+  });
+
+  const ctx: MinimalAudioContextLike & { advanceTime: (dt: number) => void } = {
+    get state() {
+      return initialState;
+    },
+    get currentTime() {
+      return now;
+    },
+    sampleRate: 48000,
+    advanceTime(dt: number) {
+      now += dt;
+    },
+    createBuffer(_ch: number, length: number) {
+      const arr = new Float32Array(length);
+      return { getChannelData: () => arr } as unknown as AudioBuffer;
+    },
+    createBufferSource() {
+      return {
+        buffer: null,
+        connect: () => {},
+        start: (when = 0) => {
+          bufferStarts.push(when);
+        },
+      } as unknown as AudioBufferSourceNode;
+    },
+    createBiquadFilter() {
+      return {
+        type: 'bandpass',
+        frequency: makeParam(false),
+        Q: { value: 1 },
+        connect: () => {},
+      } as unknown as BiquadFilterNode;
+    },
+    createGain() {
+      return {
+        gain: makeParam(false),
+        connect: () => {},
+      } as unknown as GainNode;
+    },
+    createOscillator() {
+      return {
+        type: 'sine',
+        frequency: makeParam(true),
+        connect: () => {},
+        start: () => {},
+        stop: () => {},
+      } as unknown as OscillatorNode;
+    },
+  };
+
+  return {
+    ctx,
+    dest: {} as AudioNode,
+    startedOscFreqs,
+    bufferStarts,
+  };
+}
+
+describe('V5 Procedural Ceramic & Wood-Kiln Foley Engine (kilnFoley.ts)', () => {
+  it('scales wooden bellows frequency, crackle density, and gain monotonically from 600C to 1300C with NaN safety', () => {
+    const cool = computeBellowsAcoustics(600);
+    const hot = computeBellowsAcoustics(1280);
+    const bad = computeBellowsAcoustics(Number.NaN);
+
+    expect(hot.heatNorm).toBeGreaterThan(cool.heatNorm);
+    expect(hot.peakFreqHz).toBeGreaterThan(cool.peakFreqHz);
+    expect(hot.crackleCount).toBeGreaterThan(cool.crackleCount);
+    expect(hot.gainPeak).toBeGreaterThan(cool.gainPeak);
+    expect(bad.heatNorm).toBe(0);
+    expect(Number.isFinite(bad.peakFreqHz)).toBe(true);
+  });
+
+  it('ascends Kintsugi 24k gold shimmer pitch along D-Major pentatonic scale as coverage rises 0% -> 100%', () => {
+    const low = computeKintsugiShimmerParams(5, 100);
+    const mid = computeKintsugiShimmerParams(50, 95);
+    const full = computeKintsugiShimmerParams(100, 100);
+    const nanSafe = computeKintsugiShimmerParams(Number.NaN, Number.NaN);
+
+    expect(low.freqHz).toBe(KINTSUGI_SHIMMER_SCALE_HZ[0]);
+    expect(mid.freqHz).toBeGreaterThan(low.freqHz);
+    expect(full.freqHz).toBe(KINTSUGI_SHIMMER_SCALE_HZ[KINTSUGI_SHIMMER_SCALE_HZ.length - 1]);
+    expect(full.decaySec).toBeGreaterThan(low.decaySec);
+    expect(nanSafe.freqHz).toBe(KINTSUGI_SHIMMER_SCALE_HZ[0]);
+  });
+
+  it('remains strictly autoplay-safe when AudioContext is null, suspended, or closed', () => {
+    const synth = new KilnFoleySynth();
+    const suspended = createRecordingAudioContext('suspended');
+    const closed = createRecordingAudioContext('closed');
+
+    expect(synth.playBellowsStoke(null, null, 950)).toBe(false);
+    expect(synth.playBellowsStoke(suspended.ctx, suspended.dest, 1100)).toBe(false);
+    expect(synth.playFlueVent(closed.ctx, closed.dest, true)).toBe(false);
+    expect(synth.playKintsugiBrushShimmer(suspended.ctx, suspended.dest, 60, 100)).toBe(false);
+    expect(synth.playGradeSBronzeBell(suspended.ctx, suspended.dest)).toBe(false);
+    expect(suspended.startedOscFreqs.length).toBe(0);
+    expect(suspended.bufferStarts.length).toBe(0);
+  });
+
+  it('schedules bellows draft + ember crackles, cast-iron flue damper, and mineral glaze Foley nodes', () => {
+    const synth = new KilnFoleySynth();
+    const rec = createRecordingAudioContext('running');
+
+    expect(synth.playBellowsStoke(rec.ctx, rec.dest, 1220)).toBe(true);
+    expect(rec.bufferStarts.length).toBeGreaterThanOrEqual(8); // air rush + >=7 ember pops
+
+    const prevOsc = rec.startedOscFreqs.length;
+    expect(synth.playFlueVent(rec.ctx, rec.dest, true)).toBe(true);
+    expect(synth.playFlueVent(rec.ctx, rec.dest, false)).toBe(true);
+    expect(rec.startedOscFreqs.length).toBeGreaterThanOrEqual(prevOsc + 6);
+
+    for (const mineral of ['ash', 'ochre', 'cinnabar', 'gold'] as const) {
+      expect(synth.playGlazeMix(rec.ctx, rec.dest, mineral)).toBe(true);
+    }
+  });
+
+  it('rate-limits Act IV Kintsugi shimmer bursts during fast drags and fires Grade S bronze bell chord', () => {
+    const synth = new KilnFoleySynth(0.08);
+    const rec = createRecordingAudioContext('running');
+
+    expect(synth.playKintsugiBrushShimmer(rec.ctx, rec.dest, 20, 100)).toBe(true);
+    // Immediate drag frame inside 80ms cooldown is cleanly skipped to avoid clipping
+    rec.ctx.advanceTime(0.02);
+    expect(synth.playKintsugiBrushShimmer(rec.ctx, rec.dest, 25, 100)).toBe(false);
+
+    // After cooldown expires, next shimmer plays at higher pitch
+    rec.ctx.advanceTime(0.1);
+    expect(synth.playKintsugiBrushShimmer(rec.ctx, rec.dest, 80, 100)).toBe(true);
+
+    const beforeBell = rec.startedOscFreqs.length;
+    expect(synth.playCeramicFractureSnap(rec.ctx, rec.dest)).toBe(true);
+    expect(synth.playGradeSBronzeBell(rec.ctx, rec.dest)).toBe(true);
+    // Fracture snap (3 modes) + Grade S bell (4 fundamental + 4 shimmer overtones = 8)
+    expect(rec.startedOscFreqs.length - beforeBell).toBe(11);
+  });
+
+  it('gates all KilnAudioEngine Foley triggers cleanly behind the top-bar audio toggle', () => {
+    const engine = new KilnAudioEngine();
+    expect(engine.isEnabled()).toBe(false);
+    expect(engine.playBellowsWhoosh(1100)).toBe(false);
+    expect(engine.playFlueDamper(true)).toBe(false);
+    expect(engine.playGlazeFoley('gold')).toBe(false);
+    expect(engine.playKintsugiGoldDust(75, 100)).toBe(false);
+    expect(engine.playCeramicFracture()).toBe(false);
+    expect(engine.playGradeSBell()).toBe(false);
+    engine.dispose();
   });
 });

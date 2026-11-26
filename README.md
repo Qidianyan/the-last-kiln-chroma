@@ -1,66 +1,68 @@
 # The Last Kiln of Ember Valley
 
 An original unified IP created for **The Chroma Awards Season 2** spanning all three core divisions:
-- **Game Division (*Interactive Narrative*)** — Playable browser fable (`game/`) combining real `600°C–1300°C` kiln thermal physics, four valley mineral glazes, impasto oil-painting Canvas2D shader stages, studio neural voice narration (`Zyphra ZONOS3-Mini`), procedural WebAudio chamber cello & kiln Foley, and downloadable `1000×1400` Ceramic Relic Card PNGs.
-- **Film & TV Division (*Animation & Anime / Experimental*)** — Deterministic 84-second 2.39:1 `1920×1080 @ 24fps` animated short film (`film-renderer/`) compositing 8 impasto oil-on-linen concept plates with 2.5D camera choreography, volumetric ember/firelight VFX, studio neural voiceover, and an original 4-voice chamber cello score mastered at `-14 LUFS`.
-- **Behind-The-Scenes Division** — Dedicated 66-second `1080p` Game & BTS Trailer capturing live interactive Playwright playthroughs alongside our 8-plate oil storyboard & multi-track audio breakdown.
+- **Film & TV Division (*Animation & Anime / Experimental*)** — 85.0-second 2.39:1 `1920×1080 @ 24fps` living oil-painting animated short (`film-renderer/render_v5_i2v_film.py`) edited from **8 real GPU `Lightricks/LTX-Video-0.9.5` AI Image-to-Video shots** (`648` real AI frames), mastered with a **5-track `-14.09 LUFS` cinema soundscape** (`Zyphra ZONOS3-Mini` studio narration, 4-voice chamber cello/viola score, shot-aligned ceramic & `56.2s` thermal fracture Foley, `1300°C` sub-bass bed, and bottom-bar Georgia serif subtitles).
+- **Game Division (*Interactive Narrative*)** — Playable 5-act browser fable (`game/`) combining real `600°C–1300°C` ceramic blackbody thermal shaders, mineral glaze alchemy, **interactive Act IV mouse/touch/keyboard Kintsugi gold-seam repair (`src/kintsugi.ts`)**, **zero-dependency WebAudio procedural kiln Foley (`src/audio/kilnFoley.ts`)**, bundled studio `ZONOS3-Mini` narrations, and downloadable `1000×1400` Collectible Ceramic Relic Card PNGs with unique Kintsugi signatures.
+- **Behind-The-Scenes Division** — 65.9-second `1080p` Game & BTS Master Trailer (`film-renderer/render_v6_bts_trailer.py`) uniting native `1920×1080` live Playwright gameplay captures, real side-by-side Static Oil Keyframe vs. `LTX-Video-0.9.5` I2V comparisons, and a live 2×2 AI I2V quad monitor beside the 5-track audio & engineering architecture deck.
 
 ## Repository Structure
 
 ```text
 code/last-kiln/
-├── game/                   # Playable React 19 + TypeScript + Vite interactive narrative game
-│   ├── public/art/         # 4 impasto oil hero plates (hearth, glaze table, kiln fire, kintsugi dawn)
-│   ├── public/audio/       # 4 studio Zyphra ZONOS3-Mini English narration MP3 tracks
-│   ├── scripts/            # Headless Chromium Playwright E2E playthrough & screenshot verifier
+├── game/                          # Playable React 19 + TypeScript + Vite 6 interactive narrative game
+│   ├── dist/                      # Production static bundle (ready for GitHub Pages / itch.io / Vercel)
+│   ├── public/art/                # 4 impasto oil hero plates (hearth, glaze table, kiln fire, kintsugi dawn)
+│   ├── public/audio/              # 4 studio Zyphra ZONOS3-Mini English narration MP3 tracks
+│   ├── scripts/                   # Headless Chromium Playwright E2E playthrough & real mouse drag verifier
 │   └── src/
-│       ├── components/     # Accessible native <dialog> archive, chapter drawer, HUD overlay
-│       ├── data/           # Original 5-act English script & 16-cue ElevenLabs expansion manifest
-│       ├── engine/         # Kiln thermal physics, glaze blender, oil-plate Canvas2D VFX, WebAudio
-│       └── styles/         # Tokenized 2.39:1 dark-obsidian & kiln-amber CSS (sloplint 0 FAIL)
-└── film-renderer/          # Deterministic 1080p 24fps short film & Game/BTS trailer pipeline
-    ├── art/                # 8 impasto oil-on-linen storyboard plates (01..08)
-    ├── build_audio.py      # 84s short film audio master (ZONOS3 WAVs + 4-part cello + kiln Foley)
-    ├── build_trailer_audio.py  # 66s Game & BTS trailer audio master (-14 LUFS)
-    ├── capture_gameplay_video.mjs # Live Playwright gameplay capture for the BTS trailer
-    ├── film-engine.js      # 84s 2.39:1 film compositor
-    ├── render_film.mjs     # Headless Chromium -> FFmpeg H.264 yuv420p short film encoder
-    └── render_trailer.mjs  # 66s Game & BTS trailer compositor + SRT burn-in
+│       ├── audio/kilnFoley.ts     # Pure WebAudio procedural kiln bellows, flue, glaze, crack & gold shimmer Foley
+│       ├── kintsugi.ts            # 1300°C ceramic blackbody curve & interactive Kintsugi fracture repair engine
+│       ├── components/            # Accessible native <dialog> archive, chapter drawer, interactive canvas stage
+│       ├── data/                  # Original 5-act English script & 16-cue ElevenLabs expansion manifest
+│       ├── engine/                # Kiln thermal physics, glaze blender, Canvas2D VFX, audio engine, 21 Vitest tests
+│       └── styles/                # Tokenized 2.39:1 dark-obsidian & kiln-amber CSS (sloplint 0 FAIL / 0 WARN)
+└── film-renderer/                 # Reproducible AI I2V, 85.0s short film & 65.9s Game/BTS trailer pipeline
+    ├── art/                       # 8 bespoke 4K impasto oil-on-linen concept plates (01..08)
+    ├── generate_i2v_colab.py      # Colab GPU Lightricks/LTX-Video-0.9.5 8-shot I2V batch generator + auto-stop
+    ├── render_v5_i2v_film.py      # 85.0s 2.39:1 living AI oil short film + 5-track -14.09 LUFS master + .srt
+    ├── capture_gameplay_video.mjs # Native 1920x1080 headless Chromium live gameplay capture (incl. Act IV drag)
+    └── render_v6_bts_trailer.py   # 65.9s Game + BTS dual-division trailer + live I2V split-screen + -14.10 LUFS + .srt
 ```
 
 ## Quick Start (Playable Web Game)
 
 ```bash
 cd game
-pnpm install          # or npm install
-npm run dev           # Launch interactive dev server
-npm test              # Run Vitest suite (physics, 16 warm glazes, 4 endings, manifest)
-npx tsc --noEmit      # Strict TypeScript check
-npm run build         # Production static bundle in game/dist/
-npm run verify:playthrough  # Headless Chromium full 5-act playthrough & 4 screenshot captures
+pnpm install                # or npm install
+npm run dev                 # Launch interactive dev server
+npm test                    # Run 21 Vitest tests (physics, 16 glazes, 4 endings, blackbody, Kintsugi, WebAudio Foley)
+npx tsc --noEmit            # Strict TypeScript check
+npm run build               # Production static bundle in game/dist/
+npm run verify:playthrough  # Headless Chromium full 5-act playthrough, live mouse Kintsugi drag & screenshot capture
 ```
 
-## Rendering the 1080p Short Film & Game/BTS Trailer
+## Rendering Both 1080p Cinema Masters
 
-Prerequisites: Node.js 22+, Python 3.11+ (`numpy`), FFmpeg (with `libx264`, `aac`, `libass`), and local Chromium.
+Prerequisites: Node.js 22+, Python 3.11+ (`numpy`, `pillow`), FFmpeg (with `libx264`, `aac`, `libass`, `libfreetype`), and local Chromium.
 
 ```bash
 cd film-renderer
 pnpm install
 
-# 84s Animated Short Film + bottom-bar burned subtitles + .srt
-python3 build_audio.py
-node render_film.mjs
+# 1. Generate 8 real AI Image-to-Video clips via Lightricks/LTX-Video-0.9.5 (Colab GPU with automatic stop)
+python3 generate_i2v_colab.py
 
-# 66s Game & Behind-The-Scenes Trailer + .srt
-python3 build_trailer_audio.py
+# 2. Render 85.0s 2.39:1 Animated Short Film + 5-track -14.09 LUFS soundtrack + bottom-bar Georgia subtitles + .srt
+python3 render_v5_i2v_film.py
+
+# 3. Capture native 1920x1080 live gameplay & render 65.9s Game + BTS Master Trailer + .srt
 node capture_gameplay_video.mjs
-node render_trailer.mjs
+python3 render_v6_bts_trailer.py
 ```
 
-## Color Constitution
+## Chromatic Constitution
 
-Every asset, shader, and CSS token honors our **Fired Terracotta, Molten Amber & Ash-Ink** palette (`#0E0B09`, `#F2E8DA`, `#FBF7F0`, `#E65A28`, `#C74325`, `#DBA13C`, `#4A5D3F`) with zero cool blue, cyan, teal, or purple channels.
+Every oil plate, AI I2V prompt, 1300°C blackbody thermal curve, mineral glaze blend, and CSS token strictly honors our **Fired Terracotta, Molten Amber & Ash-Ink** palette (`#0E0B09`, `#F2E8DA`, `#FBF7F0`, `#E65A28`, `#C74325`, `#DBA13C`, `#4A5D3F`) with zero cool blue, cyan, teal, or purple channels.
 
 ## License
 

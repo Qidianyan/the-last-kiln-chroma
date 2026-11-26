@@ -119,33 +119,45 @@ export class KilnAudioEngine {
     this.droneOscB.frequency.setTargetAtTime(110 + norm * 2.2, this.ctx.currentTime, 0.4);
   }
 
+  private ensureResumed(): void {
+    if (this.enabled && this.ctx && this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+  }
+
   public playBellowsWhoosh(tempC?: number): boolean {
     if (!this.enabled) return false;
+    this.ensureResumed();
     return this.foley.playBellowsStoke(this.ctx, this.masterGain, tempC ?? this.currentTempC);
   }
 
   public playFlueDamper(flueOpen: boolean): boolean {
     if (!this.enabled) return false;
+    this.ensureResumed();
     return this.foley.playFlueVent(this.ctx, this.masterGain, flueOpen);
   }
 
   public playGlazeFoley(mineral: GlazeMineralId): boolean {
     if (!this.enabled) return false;
+    this.ensureResumed();
     return this.foley.playGlazeMix(this.ctx, this.masterGain, mineral);
   }
 
   public playKintsugiGoldDust(coveragePct: number, precisionPct: number): boolean {
     if (!this.enabled) return false;
+    this.ensureResumed();
     return this.foley.playKintsugiBrushShimmer(this.ctx, this.masterGain, coveragePct, precisionPct);
   }
 
   public playCeramicFracture(): boolean {
     if (!this.enabled) return false;
+    this.ensureResumed();
     return this.foley.playCeramicFractureSnap(this.ctx, this.masterGain);
   }
 
   public playGradeSBell(): boolean {
     if (!this.enabled) return false;
+    this.ensureResumed();
     return this.foley.playGradeSBronzeBell(this.ctx, this.masterGain);
   }
 

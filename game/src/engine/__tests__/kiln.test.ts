@@ -489,4 +489,23 @@ describe('V5 Procedural Ceramic & Wood-Kiln Foley Engine (kilnFoley.ts)', () => 
     expect(engine.playGradeSBell()).toBe(false);
     engine.dispose();
   });
+
+  it('recovers shimmer cooldown cleanly if AudioContext clock restarts from 0 and tolerates zero sampleRate', () => {
+    const synth = new KilnFoleySynth(0.08);
+    const rec = createRecordingAudioContext('running');
+    rec.ctx.advanceTime(12.0); // now = 13.0s
+    expect(synth.playKintsugiBrushShimmer(rec.ctx, rec.dest, 40, 90)).toBe(true);
+
+    // Simulate a newly recreated AudioContext whose currentTime starts back at 0.2s (< 13.0s)
+    const fresh = createRecordingAudioContext('running');
+    fresh.ctx.advanceTime(-0.8); // now = 0.2s
+    expect(synth.playKintsugiBrushShimmer(fresh.ctx, fresh.dest, 60, 95)).toBe(true);
+
+    // Defensive guard: corrupted sampleRate = 0 must not throw or create 0-length buffer
+    const zeroSrCtx: MinimalAudioContextLike = {
+      ...fresh.ctx,
+      sampleRate: 0,
+    };
+    expect(synth.playBellowsStoke(zeroSrCtx, fresh.dest, 900)).toBe(true);
+  });
 });

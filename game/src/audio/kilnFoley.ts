@@ -106,8 +106,10 @@ export class KilnFoleySynth {
     durSec: number,
     brownianFactor: number,
   ): AudioBuffer {
-    const length = Math.max(16, Math.floor(ctx.sampleRate * durSec));
-    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const sr = Number.isFinite(ctx.sampleRate) && ctx.sampleRate > 0 ? ctx.sampleRate : 48000;
+    const safeDur = Number.isFinite(durSec) && durSec > 0 ? durSec : 0.05;
+    const length = Math.max(16, Math.floor(sr * safeDur));
+    const buffer = ctx.createBuffer(1, length, sr);
     const data = buffer.getChannelData(0);
     let state = 0;
     for (let i = 0; i < length; i += 1) {
@@ -314,7 +316,11 @@ export class KilnFoleySynth {
   ): boolean {
     if (!this.isContextReady(ctx) || !dest) return false;
     const now = ctx.currentTime;
-    if (this.lastShimmerTimeSec >= 0 && now - this.lastShimmerTimeSec < this.shimmerCooldownSec) {
+    if (
+      this.lastShimmerTimeSec >= 0 &&
+      now >= this.lastShimmerTimeSec &&
+      now - this.lastShimmerTimeSec < this.shimmerCooldownSec
+    ) {
       return false;
     }
     this.lastShimmerTimeSec = now;

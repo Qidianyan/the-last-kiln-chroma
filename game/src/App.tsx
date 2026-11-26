@@ -251,17 +251,24 @@ export function App() {
     setState((prev) => ({ ...prev, choiceTwo: choice }));
   }, []);
 
-  const handleChooseThree = useCallback((choice: ChoiceThreeId) => {
-    const spec = CHOICE_THREE_OPTIONS.find((c) => c.id === choice);
-    if (spec) {
-      setActiveCueId(spec.voiceCueId);
-      audioRef.current?.triggerVoiceCue(spec.voiceCueId);
-    }
-    if (choice === 'kintsugi') {
-      setKintsugi((prev) => (prev.coveragePct < 25 ? traceNextKintsugiBranch(prev) : prev));
-    }
-    setState((prev) => ({ ...prev, choiceThree: choice }));
-  }, []);
+  const handleChooseThree = useCallback(
+    (choice: ChoiceThreeId) => {
+      const spec = CHOICE_THREE_OPTIONS.find((c) => c.id === choice);
+      if (spec) {
+        setActiveCueId(spec.voiceCueId);
+        audioRef.current?.triggerVoiceCue(spec.voiceCueId);
+      }
+      if (choice === 'kintsugi' && kintsugiRef.current.coveragePct < 25) {
+        const prev = kintsugiRef.current;
+        const next = traceNextKintsugiBranch(prev);
+        kintsugiRef.current = next;
+        setKintsugi(next);
+        triggerKintsugiAudioFeedback(prev, next);
+      }
+      setState((prev) => ({ ...prev, choiceThree: choice }));
+    },
+    [triggerKintsugiAudioFeedback],
+  );
 
   const handleNextLineOrScene = useCallback(() => {
     const prev = stateRef.current;

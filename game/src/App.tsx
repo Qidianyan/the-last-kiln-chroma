@@ -52,6 +52,8 @@ export function App() {
   if (!audioRef.current) {
     audioRef.current = new KilnAudioEngine();
   }
+  const stateRef = useRef<KilnState>(state);
+  stateRef.current = state;
 
   useEffect(() => {
     const engine = audioRef.current;
@@ -236,55 +238,54 @@ export function App() {
   }, []);
 
   const handleNextLineOrScene = useCallback(() => {
-    setState((prev) => {
-      const currentScene = SCENES[prev.scene];
-      if (prev.lineIndex < currentScene.openingLines.length - 1) {
-        return { ...prev, lineIndex: prev.lineIndex + 1 };
-      }
+    const prev = stateRef.current;
+    const currentScene = SCENES[prev.scene];
+    if (prev.lineIndex < currentScene.openingLines.length - 1) {
+      setState((cur) => ({ ...cur, lineIndex: cur.lineIndex + 1 }));
+      return;
+    }
 
-      const nextSceneId = getNextScene(prev.scene);
-      if (!nextSceneId) return prev;
+    const nextSceneId = getNextScene(prev.scene);
+    if (!nextSceneId) return;
 
-      const nextDef = SCENES[nextSceneId];
-      setActiveCueId(nextDef.voiceCueId);
-      audioRef.current?.triggerVoiceCue(nextDef.voiceCueId);
+    const nextDef = SCENES[nextSceneId];
+    setActiveCueId(nextDef.voiceCueId);
+    audioRef.current?.triggerVoiceCue(nextDef.voiceCueId);
 
-      let adjustedTemp = prev.temperatureC;
-      if (nextSceneId === 'stoking' && adjustedTemp < 960) adjustedTemp = 995;
-      if (nextSceneId === 'vitrification') {
-        if (adjustedTemp < 1155) adjustedTemp = 1185;
-        setKintsugi(
-          generateKintsugiSkeleton(
-            `${prev.primaryGlaze}+${prev.secondaryGlaze}:${Math.round(Math.max(prev.peakTempC, adjustedTemp))}`,
-          ),
-        );
-      }
-      if (nextSceneId === 'unsealing') adjustedTemp = 665;
+    let adjustedTemp = prev.temperatureC;
+    if (nextSceneId === 'stoking' && adjustedTemp < 960) adjustedTemp = 995;
+    if (nextSceneId === 'vitrification') {
+      if (adjustedTemp < 1155) adjustedTemp = 1185;
+      setKintsugi(
+        generateKintsugiSkeleton(
+          `${prev.primaryGlaze}+${prev.secondaryGlaze}:${Math.round(Math.max(prev.peakTempC, adjustedTemp))}`,
+        ),
+      );
+    }
+    if (nextSceneId === 'unsealing') adjustedTemp = 665;
 
-      const nextPeak = Math.max(prev.peakTempC, adjustedTemp);
-      return {
-        ...prev,
-        scene: nextSceneId,
-        lineIndex: 0,
-        temperatureC: adjustedTemp,
-        peakTempC: nextPeak,
-        tempHistory: recordTempPoint(prev, adjustedTemp, prev.thermalStress, nextSceneId),
-      };
-    });
+    const nextPeak = Math.max(prev.peakTempC, adjustedTemp);
+    setState((cur) => ({
+      ...cur,
+      scene: nextSceneId,
+      lineIndex: 0,
+      temperatureC: adjustedTemp,
+      peakTempC: Math.max(cur.peakTempC, nextPeak),
+      tempHistory: recordTempPoint(cur, adjustedTemp, cur.thermalStress, nextSceneId),
+    }));
   }, []);
 
   const handleUnsealEnding = useCallback(() => {
-    setState((prev) => {
-      const ending = resolveEnding(prev);
-      const endingDef = ENDINGS[ending];
-      setActiveCueId(endingDef.voiceCueId);
-      audioRef.current?.triggerVoiceCue(endingDef.voiceCueId);
-      return {
-        ...prev,
-        ending,
-        tempHistory: recordTempPoint(prev, prev.temperatureC, prev.thermalStress, 'unsealing'),
-      };
-    });
+    const prev = stateRef.current;
+    const ending = resolveEnding(prev);
+    const endingDef = ENDINGS[ending];
+    setActiveCueId(endingDef.voiceCueId);
+    audioRef.current?.triggerVoiceCue(endingDef.voiceCueId);
+    setState((cur) => ({
+      ...cur,
+      ending,
+      tempHistory: recordTempPoint(cur, cur.temperatureC, cur.thermalStress, 'unsealing'),
+    }));
     setEndingModalOpen(true);
   }, []);
 

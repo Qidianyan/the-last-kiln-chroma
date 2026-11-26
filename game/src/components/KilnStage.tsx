@@ -114,11 +114,20 @@ export function KilnStage({
 
   const interactiveRepair = state.scene === 'vitrification';
 
+  useEffect(() => {
+    if (!interactiveRepair) {
+      draggingRef.current = false;
+      lastPtRef.current = null;
+    }
+  }, [interactiveRepair]);
+
   const toNormalized = (ev: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = ev.currentTarget.getBoundingClientRect();
+    const rawX = (ev.clientX - rect.left) / Math.max(1, rect.width);
+    const rawY = (ev.clientY - rect.top) / Math.max(1, rect.height);
     return {
-      x: (ev.clientX - rect.left) / Math.max(1, rect.width),
-      y: (ev.clientY - rect.top) / Math.max(1, rect.height),
+      x: Math.max(0, Math.min(1, rawX)),
+      y: Math.max(0, Math.min(1, rawY)),
     };
   };
 

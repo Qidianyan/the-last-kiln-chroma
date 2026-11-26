@@ -100,7 +100,8 @@ function rgbToHex(r: number, g: number, b: number): string {
 }
 
 function sampleBlackbodyRgb(tempC: number): { r: number; g: number; b: number; stage: string } {
-  const clamped = Math.max(MIN_KILN_TEMP, Math.min(MAX_KILN_TEMP, tempC));
+  const safeTemp = Number.isFinite(tempC) ? tempC : MIN_KILN_TEMP;
+  const clamped = Math.max(MIN_KILN_TEMP, Math.min(MAX_KILN_TEMP, safeTemp));
   for (let i = 0; i < BLACKBODY_STOPS.length - 1; i += 1) {
     const a = BLACKBODY_STOPS[i]!;
     const b = BLACKBODY_STOPS[i + 1]!;
@@ -119,7 +120,8 @@ function sampleBlackbodyRgb(tempC: number): { r: number; g: number; b: number; s
 }
 
 export function computeBlackbodyRadiation(tempC: number): BlackbodyRadiation {
-  const clamped = Math.max(MIN_KILN_TEMP, Math.min(MAX_KILN_TEMP, tempC));
+  const safeTemp = Number.isFinite(tempC) ? tempC : MIN_KILN_TEMP;
+  const clamped = Math.max(MIN_KILN_TEMP, Math.min(MAX_KILN_TEMP, safeTemp));
   const norm = (clamped - MIN_KILN_TEMP) / (MAX_KILN_TEMP - MIN_KILN_TEMP);
 
   const core = sampleBlackbodyRgb(Math.min(MAX_KILN_TEMP, clamped + 45));
@@ -265,7 +267,7 @@ function pointToSegmentDist(
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-export const KINTSUGI_BRUSH_RADIUS = 0.056;
+export const KINTSUGI_BRUSH_RADIUS = 0.026;
 
 function computeMetrics(
   nodes: KintsugiNode[],
@@ -293,16 +295,21 @@ export function applyKintsugiStroke(
   fromY?: number,
   brushRadius: number = KINTSUGI_BRUSH_RADIUS,
 ): KintsugiSession {
-  const ax = fromX ?? toX;
-  const ay = fromY ?? toY;
+  if (!Number.isFinite(toX) || !Number.isFinite(toY)) {
+    return session;
+  }
+  const ax = fromX !== undefined && Number.isFinite(fromX) ? fromX : toX;
+  const ay = fromY !== undefined && Number.isFinite(fromY) ? fromY : toY;
+  const safeRadius =
+    Number.isFinite(brushRadius) && brushRadius > 0 ? Math.max(1e-4, brushRadius) : KINTSUGI_BRUSH_RADIUS;
 
   let hitAny = false;
   const newSparks: KintsugiSpark[] = [];
   const nextNodes = session.nodes.map((node) => {
     const dist = pointToSegmentDist(node.x, node.y, ax, ay, toX, toY);
-    if (dist <= brushRadius) {
+    if (dist <= safeRadius) {
       hitAny = true;
-      const falloff = 1 - dist / brushRadius;
+      const falloff = 1 - dist / safeRadius;
       const deposit = Math.min(1, node.gilded + 0.55 + falloff * 0.55);
       if (deposit > node.gilded + 0.05 && newSparks.length < 6) {
         const angle = (node.id * 1.9 + session.strokeCount * 0.7) % (Math.PI * 2);
@@ -352,15 +359,17 @@ export function traceNextKintsugiBranch(session: KintsugiSession): KintsugiSessi
     const node = current.nodes[targetBranch.nodeIds[i]!];
     const prev = i > 0 ? current.nodes[targetBranch.nodeIds[i - 1]!] : node;
     if (!node || !prev) continue;
-    current = applyKintsugiStroke(current, node.x, node.y, prev.x, prev.y, KINTSUGI_BRUSH_RADIUS);
+    current = applyKintsugiStroke(current, node.x, node.y, prev.x, prev.y, 0.012);
   }
   return current;
 }
 
 export function stepKintsugiSparks(sparks: KintsugiSpark[], dtSec: number): KintsugiSpark[] {
-  const dt = Math.max(0, Math.min(0.05, dtSec));
+  const safeDt = Number.isFinite(dtSec) ? dtSec : 0;
+  const dt = Math.max(0, Math.min(0.05, safeDt));
   const out: KintsugiSpark[] = [];
   for (const sp of sparks) {
+    if (!Number.isFinite(sp.maxLife) || sp.maxLife <= 0) continue;
     const nextLife = sp.life + dt;
     if (nextLife >= sp.maxLife) continue;
     out.push({

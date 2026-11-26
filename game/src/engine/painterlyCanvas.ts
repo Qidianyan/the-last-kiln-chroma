@@ -4,6 +4,7 @@ import {
   computeKintsugiCraftReport,
   stepKintsugiSparks,
   type KintsugiSession,
+  type KintsugiSpark,
 } from '../kintsugi';
 import { computeGlazeBlend, GLAZE_MINERALS, MAX_KILN_TEMP, MIN_KILN_TEMP } from './kilnPhysics';
 import type { EndingId, GlazeBlend, KilnState, SceneId } from '../types/game';
@@ -68,6 +69,9 @@ function createSeededRandom(seed: number): () => number {
  */
 export class PainterlyKilnRenderer {
   private particles: EmberParticle[] = [];
+  private activeKintsugiSparks: KintsugiSpark[] = [];
+  private lastKintsugiStrokeCount = 0;
+  private lastKintsugiSeed = -1;
   private grainCanvas: HTMLCanvasElement | null = null;
   private pulseEnergy = 0;
   private echoWaveAge = 99;
@@ -376,16 +380,34 @@ export class PainterlyKilnRenderer {
       ctx.restore();
     }
 
-    // Render interactive procedural Kintsugi crack skeleton in Act IV & final gilded states
+    // Render interactive procedural Kintsugi crack skeleton in Act IV (and subtle heat hairline if overstressed in Act III),
+    // keeping Act V dawn oil plates uncluttered by raw vector fissure lines.
     const showKintsugi =
       kintsugi &&
       (state.scene === 'vitrification' ||
-        state.thermalStress > 16 ||
-        kintsugi.coveragePct > 0 ||
-        state.choiceThree === 'kintsugi' ||
-        state.ending === 'gilded_reliquary');
+        (state.scene === 'stoking' && state.thermalStress > 25));
 
-    if (!showKintsugi || !kintsugi) return;
+    if (!showKintsugi || !kintsugi) {
+      this.activeKintsugiSparks = [];
+      return;
+    }
+
+    // Ingest newly emitted gold sparks once per strokeCount change and animate them cleanly across RAF frames
+    if (kintsugi.seed !== this.lastKintsugiSeed || kintsugi.strokeCount === 0) {
+      this.activeKintsugiSparks = [];
+      this.lastKintsugiSeed = kintsugi.seed;
+      this.lastKintsugiStrokeCount = kintsugi.strokeCount;
+    } else if (kintsugi.strokeCount !== this.lastKintsugiStrokeCount) {
+      const freshCount = Math.min(kintsugi.sparks.length, 6);
+      if (freshCount > 0) {
+        this.activeKintsugiSparks = [
+          ...this.activeKintsugiSparks.slice(-42),
+          ...kintsugi.sparks.slice(-freshCount),
+        ];
+      }
+      this.lastKintsugiStrokeCount = kintsugi.strokeCount;
+    }
+    this.activeKintsugiSparks = stepKintsugiSparks(this.activeKintsugiSparks, dt);
 
     const interactiveAct = state.scene === 'vitrification';
     const scale = Math.min(w, h) / 720;
@@ -467,10 +489,9 @@ export class PainterlyKilnRenderer {
       }
     }
 
-    // Active molten gold brush sparks
-    const liveSparks = stepKintsugiSparks(kintsugi.sparks, dt);
+    // Active molten gold brush sparks (stepped persistently across RAF frames above)
     ctx.globalCompositeOperation = 'lighter';
-    for (const sp of liveSparks) {
+    for (const sp of this.activeKintsugiSparks) {
       const alpha = Math.max(0, 1 - sp.life / sp.maxLife);
       ctx.fillStyle = `rgba(255, 240, 194, ${alpha.toFixed(3)})`;
       ctx.beginPath();

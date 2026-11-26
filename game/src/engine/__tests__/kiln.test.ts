@@ -271,5 +271,51 @@ describe('V4 Interactive Kintsugi fracture engine & 1300C blackbody thermal curv
     expect(report.grade).toBe('S');
     expect(report.gradeTitle).toBe('Masterwork Kintsugi');
     expect(report.signature).toMatch(/^EV-S-[0-9A-F]{4}$/);
+
+    // Tracing again after 100% completion is a clean no-op
+    const idempotent = traceNextKintsugiBranch(session);
+    expect(idempotent.strokeCount).toBe(session.strokeCount);
+  });
+
+  it('guards NaN/out-of-range temperatures, zero-radius strokes, spark expiration, and all 4 craft grades', () => {
+    // 1. Out-of-range & NaN blackbody inputs must never emit invalid hex or NaN heat
+    for (const badTemp of [-200, 5000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const rad = computeBlackbodyRadiation(badTemp);
+      expect(rad.coreHex).toMatch(/^#[0-9A-F]{6}$/);
+      expect(rad.midHex).toMatch(/^#[0-9A-F]{6}$/);
+      expect(rad.rimHex).toMatch(/^#[0-9A-F]{6}$/);
+      expect(Number.isFinite(rad.normalizedHeat)).toBe(true);
+    }
+
+    // 2. NaN coords are safely ignored; zero brushRadius never divides by zero
+    let session = generateKintsugiSkeleton('boundary:1200');
+    const ignored = applyKintsugiStroke(session, Number.NaN, 0.5);
+    expect(ignored.strokeCount).toBe(0);
+    expect(ignored.offSeamSamples).toBe(0);
+
+    const n0 = session.nodes[0]!;
+    const zeroRad = applyKintsugiStroke(session, n0.x, n0.y, n0.x, n0.y, 0);
+    expect(Number.isFinite(zeroRad.coveragePct)).toBe(true);
+    expect(zeroRad.coveragePct).toBeGreaterThan(0);
+
+    // 3. Spark expiration removes aged sparks and ignores NaN dt
+    const survived = stepKintsugiSparks(zeroRad.sparks, Number.NaN);
+    expect(survived.length).toBe(zeroRad.sparks.length);
+    let expiring = zeroRad.sparks;
+    for (let i = 0; i < 25; i += 1) {
+      expiring = stepKintsugiSparks(expiring, 0.05);
+    }
+    expect(expiring.length).toBe(0);
+
+    // 4. All 4 craft grades (C -> B -> A -> S) plus precision gate (high coverage + low precision -> A, not S)
+    expect(computeKintsugiCraftReport(session, 'Ash', 1100).grade).toBe('C');
+    session = traceNextKintsugiBranch(session); // ~35-45% coverage
+    expect(computeKintsugiCraftReport(session, 'Ash', 1100).grade).toBe('B');
+    session = traceNextKintsugiBranch(session); // ~60-75% coverage
+    expect(computeKintsugiCraftReport(session, 'Ash', 1100).grade).toBe('A');
+    session = traceNextKintsugiBranch(session);
+    session = traceNextKintsugiBranch(session); // 100% coverage
+    const sloppyHighCoverage = { ...session, precisionPct: 50 };
+    expect(computeKintsugiCraftReport(sloppyHighCoverage, 'Ash', 1100).grade).toBe('A');
   });
 });

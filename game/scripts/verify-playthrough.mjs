@@ -189,13 +189,21 @@ async function main() {
     await page.getByTestId('stoke-bellows-btn').click();
     await page.waitForTimeout(250);
 
-    // Real pointer drag across vessel fractures on the interactive Kintsugi canvas + trace branches
-    await page.mouse.move(620, 220);
+    // Real pointer drag directly on the interactive Kintsugi canvas MUST raise coverage before any button click
+    await page.mouse.move(630, 230);
     await page.mouse.down();
-    await page.mouse.move(600, 275, { steps: 6 });
-    await page.mouse.move(645, 330, { steps: 6 });
-    await page.mouse.move(620, 405, { steps: 6 });
+    await page.mouse.move(612, 282, { steps: 6 });
+    await page.mouse.move(648, 340, { steps: 6 });
+    await page.mouse.move(622, 410, { steps: 6 });
     await page.mouse.up();
+    await page.waitForTimeout(150);
+
+    const dragOnlyText = await page.getByTestId('kintsugi-coverage-value').textContent();
+    const dragOnlyPct = Number.parseInt((dragOnlyText || '0').replace('%', ''), 10);
+    if (Number.isNaN(dragOnlyPct) || dragOnlyPct <= 0) {
+      throw new Error(`Canvas pointer drag failed to register Kintsugi lacquer: coverage=${dragOnlyText}`);
+    }
+
     await page.getByTestId('kintsugi-trace-btn').click();
     await page.getByTestId('kintsugi-trace-btn').click();
     await page.getByTestId('kintsugi-trace-btn').click();

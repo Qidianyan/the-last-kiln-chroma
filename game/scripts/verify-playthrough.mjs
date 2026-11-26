@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const gameRoot = path.resolve(__dirname, '..');
 const distDir = path.join(gameRoot, 'dist');
 const materialsDir = path.resolve(gameRoot, '..', '..', '..', 'materials');
+const shotsDir = path.resolve(gameRoot, '..', '..', '..', 'shots');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -64,6 +65,7 @@ async function main() {
     throw new Error('dist/index.html missing. Run `npm run build` first.');
   }
   fs.mkdirSync(materialsDir, { recursive: true });
+  fs.mkdirSync(shotsDir, { recursive: true });
 
   const executablePath = findChromiumExecutable();
   const { server, url } = await startStaticServer(distDir);
@@ -142,6 +144,10 @@ async function main() {
       path: path.join(materialsDir, 'game_shot_01_hearth_title.png'),
       type: 'png',
     });
+    await page.screenshot({
+      path: path.join(shotsDir, 'after_act1_hearth.png'),
+      type: 'png',
+    });
 
     // Advance through Act I to Act II
     await page.getByTestId('advance-btn').click();
@@ -177,12 +183,38 @@ async function main() {
       type: 'png',
     });
 
-    // Advance into Act IV — Vitrification Hour
+    // Advance into Act IV — Vitrification Hour (1300C blackbody + Interactive Kintsugi tracing!)
     await page.getByTestId('advance-btn').click();
     await page.getByTestId('stoke-bellows-btn').click();
+    await page.getByTestId('stoke-bellows-btn').click();
+    await page.waitForTimeout(250);
+
+    // Real pointer drag across vessel fractures on the interactive Kintsugi canvas + trace branches
+    await page.mouse.move(620, 220);
+    await page.mouse.down();
+    await page.mouse.move(600, 275, { steps: 6 });
+    await page.mouse.move(645, 330, { steps: 6 });
+    await page.mouse.move(620, 405, { steps: 6 });
+    await page.mouse.up();
+    await page.getByTestId('kintsugi-trace-btn').click();
+    await page.getByTestId('kintsugi-trace-btn').click();
+    await page.getByTestId('kintsugi-trace-btn').click();
     await page.getByTestId('advance-btn').click();
     await page.getByTestId('advance-btn').click();
     await page.getByTestId('choice-three-kintsugi').click();
+    await page.waitForTimeout(350);
+
+    const kintsugiText = await page.getByTestId('kintsugi-coverage-value').textContent();
+    const kintsugiGrade = await page.getByTestId('kintsugi-grade-pill').textContent();
+    const coverageNum = Number.parseInt((kintsugiText || '0').replace('%', ''), 10);
+    if (Number.isNaN(coverageNum) || coverageNum < 60) {
+      throw new Error(`Interactive Kintsugi repair verification failed: coverage=${kintsugiText}, grade=${kintsugiGrade}`);
+    }
+
+    await page.screenshot({
+      path: path.join(shotsDir, 'after_act4_kintsugi.png'),
+      type: 'png',
+    });
 
     // Advance into Act V — Unsealing & Reveal Collectible Ceramic Relic Card
     await page.getByTestId('advance-btn').click();
@@ -191,7 +223,7 @@ async function main() {
     await page.getByTestId('advance-btn').click();
     await page.waitForTimeout(450);
 
-    // Verify native <dialog> opened and relic card canvas rendered cleanly
+    // Verify native <dialog> opened and relic card canvas rendered cleanly with Kintsugi signature
     const dialogCheck = await page.evaluate(() => {
       const dlg = document.querySelector('dialog[open]');
       const relicCanvas = dlg ? dlg.querySelector('canvas') : null;
@@ -200,16 +232,26 @@ async function main() {
         relicWidth: relicCanvas ? relicCanvas.width : 0,
         relicHeight: relicCanvas ? relicCanvas.height : 0,
         title: dlg ? dlg.querySelector('h2')?.textContent : null,
+        hasSignature: dlg ? /EV-[SABC]-[0-9A-F]{4}/.test(dlg.textContent || '') : false,
       };
     });
 
-    if (!dialogCheck.dialogOpen || dialogCheck.relicWidth !== 1000 || dialogCheck.relicHeight !== 1400) {
+    if (
+      !dialogCheck.dialogOpen ||
+      dialogCheck.relicWidth !== 1000 ||
+      dialogCheck.relicHeight !== 1400 ||
+      !dialogCheck.hasSignature
+    ) {
       throw new Error(`Ending dialog / Relic Card verification failed: ${JSON.stringify(dialogCheck)}`);
     }
 
     // Shot 4: Illustrated Ending & Collectible Ceramic Relic Card Modal
     await page.screenshot({
       path: path.join(materialsDir, 'game_shot_04_relic_ending.png'),
+      type: 'png',
+    });
+    await page.screenshot({
+      path: path.join(shotsDir, 'after_act5_relic.png'),
       type: 'png',
     });
 

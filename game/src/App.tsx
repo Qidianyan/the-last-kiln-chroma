@@ -19,6 +19,12 @@ import {
   resolveEnding,
   stepKilnTemperature,
 } from './engine/kilnPhysics';
+import {
+  applyKintsugiStroke,
+  generateKintsugiSkeleton,
+  traceNextKintsugiBranch,
+  type KintsugiSession,
+} from './kintsugi';
 import type {
   ChoiceOneId,
   ChoiceThreeId,
@@ -31,6 +37,9 @@ import type {
 
 export function App() {
   const [state, setState] = useState<KilnState>(() => createInitialKilnState());
+  const [kintsugi, setKintsugi] = useState<KintsugiSession>(() =>
+    generateKintsugiSkeleton('ochre+cinnabar:1185'),
+  );
   const [audioOn, setAudioOn] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
   const [endingModalOpen, setEndingModalOpen] = useState(false);
@@ -51,7 +60,6 @@ export function App() {
     };
   }, []);
 
-  // Update browser document title on scene or ending change
   useEffect(() => {
     if (endingModalOpen && state.ending) {
       document.title = `${ENDINGS[state.ending].title} | The Last Kiln of Ember Valley`;
@@ -61,7 +69,6 @@ export function App() {
     document.title = `${scene.actLabel}: ${scene.title} | The Last Kiln of Ember Valley`;
   }, [state.scene, state.ending, endingModalOpen]);
 
-  // Continuous kiln thermal simulation loop (4Hz UI physics ticks)
   useEffect(() => {
     const interval = window.setInterval(() => {
       setState((prev) => {
@@ -175,6 +182,29 @@ export function App() {
     }));
   }, []);
 
+  const handleKintsugiStroke = useCallback(
+    (toX: number, toY: number, fromX?: number, fromY?: number) => {
+      setKintsugi((prev) => {
+        const next = applyKintsugiStroke(prev, toX, toY, fromX, fromY);
+        if (next.coveragePct > prev.coveragePct && next.coveragePct % 10 === 0) {
+          audioRef.current?.playCeramicChime(6);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleTraceNextKintsugi = useCallback(() => {
+    audioRef.current?.playCeramicChime(6);
+    setKintsugi((prev) => traceNextKintsugiBranch(prev));
+  }, []);
+
+  const handleResetKintsugi = useCallback(() => {
+    audioRef.current?.playCeramicChime(0);
+    setKintsugi((prev) => generateKintsugiSkeleton(`reset:${prev.seed}`));
+  }, []);
+
   const handleChooseOne = useCallback((choice: ChoiceOneId) => {
     const spec = CHOICE_ONE_OPTIONS.find((c) => c.id === choice);
     if (spec) {
@@ -199,6 +229,9 @@ export function App() {
       setActiveCueId(spec.voiceCueId);
       audioRef.current?.triggerVoiceCue(spec.voiceCueId);
     }
+    if (choice === 'kintsugi') {
+      setKintsugi((prev) => (prev.coveragePct < 25 ? traceNextKintsugiBranch(prev) : prev));
+    }
     setState((prev) => ({ ...prev, choiceThree: choice }));
   }, []);
 
@@ -216,10 +249,16 @@ export function App() {
       setActiveCueId(nextDef.voiceCueId);
       audioRef.current?.triggerVoiceCue(nextDef.voiceCueId);
 
-      // Natural narrative progression adjusts firebox baseline into the next act's thermal band
       let adjustedTemp = prev.temperatureC;
       if (nextSceneId === 'stoking' && adjustedTemp < 960) adjustedTemp = 995;
-      if (nextSceneId === 'vitrification' && adjustedTemp < 1155) adjustedTemp = 1185;
+      if (nextSceneId === 'vitrification') {
+        if (adjustedTemp < 1155) adjustedTemp = 1185;
+        setKintsugi(
+          generateKintsugiSkeleton(
+            `${prev.primaryGlaze}+${prev.secondaryGlaze}:${Math.round(Math.max(prev.peakTempC, adjustedTemp))}`,
+          ),
+        );
+      }
       if (nextSceneId === 'unsealing') adjustedTemp = 665;
 
       const nextPeak = Math.max(prev.peakTempC, adjustedTemp);
@@ -261,6 +300,9 @@ export function App() {
       unsealing: 665,
     };
     const nextTemp = defaultTempByScene[targetScene];
+    if (targetScene === 'vitrification') {
+      setKintsugi(generateKintsugiSkeleton(`jump:${nextTemp}`));
+    }
     setState((prev) => ({
       ...prev,
       scene: targetScene,
@@ -277,6 +319,15 @@ export function App() {
     const endingDef = ENDINGS[endingId];
     setActiveCueId(endingDef.voiceCueId);
     audioRef.current?.triggerVoiceCue(endingDef.voiceCueId);
+    let previewKintsugi = generateKintsugiSkeleton(
+      `${preset.primaryGlaze}+${preset.secondaryGlaze}:${preset.peakTempC}`,
+    );
+    if (endingId === 'gilded_reliquary') {
+      for (let i = 0; i < 4; i += 1) {
+        previewKintsugi = traceNextKintsugiBranch(previewKintsugi);
+      }
+    }
+    setKintsugi(previewKintsugi);
     setState((prev) => ({
       ...prev,
       scene: 'unsealing',
@@ -308,6 +359,7 @@ export function App() {
     setEndingModalOpen(false);
     const fresh = createInitialKilnState();
     setState(fresh);
+    setKintsugi(generateKintsugiSkeleton('ochre+cinnabar:1185'));
     setActiveCueId('vo_act1_hearth');
     audioRef.current?.triggerVoiceCue('vo_act1_hearth');
   }, []);
@@ -322,9 +374,11 @@ export function App() {
 
       <KilnStage
         state={state}
+        kintsugi={kintsugi}
         bellowsSignal={bellowsSignal}
         echoSignal={echoSignal}
         glazeSignal={glazeSignal}
+        onKintsugiStroke={handleKintsugiStroke}
       />
 
       <header className="top-header">
@@ -372,7 +426,7 @@ export function App() {
             onClick={() => setChaptersOpen(true)}
             data-testid="chapters-btn"
           >
-            Chapters & Archive
+            Chapters &amp; Archive
           </button>
         </nav>
       </header>
@@ -380,12 +434,15 @@ export function App() {
       <main id="main-stage" className="stage-main" tabIndex={-1}>
         <NarrativeOverlay
           state={state}
+          kintsugi={kintsugi}
           activeCueId={activeCueId}
           onStoke={handleStoke}
           onToggleFlue={handleToggleFlue}
           onListenEcho={handleListenEcho}
           onSelectPrimaryGlaze={handleSelectPrimaryGlaze}
           onSelectSecondaryGlaze={handleSelectSecondaryGlaze}
+          onTraceNextKintsugi={handleTraceNextKintsugi}
+          onResetKintsugi={handleResetKintsugi}
           onChooseOne={handleChooseOne}
           onChooseTwo={handleChooseTwo}
           onChooseThree={handleChooseThree}
@@ -406,6 +463,7 @@ export function App() {
         open={endingModalOpen}
         endingId={state.ending}
         state={state}
+        kintsugi={kintsugi}
         onClose={() => setEndingModalOpen(false)}
         onReplay={handleReplay}
       />

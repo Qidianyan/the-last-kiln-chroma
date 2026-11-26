@@ -22,6 +22,14 @@ import {
   SHATTER_STRESS_LIMIT,
   stepKilnTemperature,
 } from '../kilnPhysics';
+import {
+  applyKintsugiStroke,
+  computeBlackbodyRadiation,
+  computeKintsugiCraftReport,
+  generateKintsugiSkeleton,
+  stepKintsugiSparks,
+  traceNextKintsugiBranch,
+} from '../../kintsugi';
 import type { EndingId, GlazeMineralId, SceneId } from '../../types/game';
 
 function parseHexRgb(hex: string): [number, number, number] {
@@ -182,5 +190,86 @@ describe('Branching narrative graph & all 4 illustrated endings reachable', () =
       expect(AUDIO_MANIFEST_BY_ID[cueId]).toBeDefined();
     }
     expect(ELEVENLABS_AUDIO_MANIFEST.length).toBeGreaterThanOrEqual(16);
+  });
+});
+
+describe('V4 Interactive Kintsugi fracture engine & 1300C blackbody thermal curve', () => {
+  it('computes monotonic 600C-1300C ceramic blackbody radiance with strict zero blue/purple palette', () => {
+    const temps = [600, 760, 940, 1100, 1220, 1300];
+    let prevHeat = -1;
+    let prevLum = -1;
+
+    for (const temp of temps) {
+      const rad = computeBlackbodyRadiation(temp);
+      expect(rad.normalizedHeat).toBeGreaterThan(prevHeat);
+      prevHeat = rad.normalizedHeat;
+
+      for (const hex of [rad.coreHex, rad.midHex, rad.rimHex]) {
+        const [r, g, b] = parseHexRgb(hex);
+        expect(b).toBeLessThanOrEqual(g);
+        expect(g).toBeLessThanOrEqual(r);
+      }
+
+      const [mr, mg, mb] = parseHexRgb(rad.midHex);
+      const lum = mr * 0.299 + mg * 0.587 + mb * 0.114;
+      expect(lum).toBeGreaterThan(prevLum);
+      prevLum = lum;
+    }
+
+    expect(computeBlackbodyRadiation(1300).stageLabel).toBe('White-Gold Vitrification');
+  });
+
+  it('generates deterministic 4-branch stoneware fracture skeleton within vessel coordinates', () => {
+    const a = generateKintsugiSkeleton('cinnabar+gold:1220');
+    const b = generateKintsugiSkeleton('cinnabar+gold:1220');
+    expect(a.seed).toBe(b.seed);
+    expect(a.branches.length).toBe(4);
+    expect(a.nodes.length).toBeGreaterThanOrEqual(32);
+    expect(a.coveragePct).toBe(0);
+
+    for (const node of a.nodes) {
+      expect(node.x).toBeGreaterThan(0.2);
+      expect(node.x).toBeLessThan(0.8);
+      expect(node.y).toBeGreaterThan(0.15);
+      expect(node.y).toBeLessThan(0.85);
+    }
+  });
+
+  it('tracks accurate on-seam lacquer strokes, penalizes off-seam precision, and steps gold sparks', () => {
+    let session = generateKintsugiSkeleton('ochre+cinnabar:1185');
+    const target = session.nodes[0]!;
+    const neighbor = session.nodes[1]!;
+
+    session = applyKintsugiStroke(session, neighbor.x, neighbor.y, target.x, target.y);
+    expect(session.onSeamSamples).toBe(1);
+    expect(session.offSeamSamples).toBe(0);
+    expect(session.coveragePct).toBeGreaterThan(0);
+    expect(session.precisionPct).toBe(100);
+    expect(session.sparks.length).toBeGreaterThan(0);
+
+    // Wild off-vessel stroke reduces precision without adding false gold coverage
+    const covBefore = session.coveragePct;
+    session = applyKintsugiStroke(session, 0.05, 0.05, 0.05, 0.05);
+    expect(session.offSeamSamples).toBe(1);
+    expect(session.coveragePct).toBe(covBefore);
+    expect(session.precisionPct).toBe(50);
+
+    const aged = stepKintsugiSparks(session.sparks, 0.04);
+    expect(aged.length).toBe(session.sparks.length);
+    expect(aged[0]!.life).toBeCloseTo(0.04, 3);
+  });
+
+  it('traces all branches to 100% coverage and produces Masterwork Grade S & unique Relic Signature', () => {
+    let session = generateKintsugiSkeleton('cinnabar+gold:1240');
+    for (let i = 0; i < 4; i += 1) {
+      session = traceNextKintsugiBranch(session);
+    }
+    expect(session.coveragePct).toBe(100);
+    expect(session.precisionPct).toBe(100);
+
+    const report = computeKintsugiCraftReport(session, 'Kintsugi Ember Lacquer', 1240);
+    expect(report.grade).toBe('S');
+    expect(report.gradeTitle).toBe('Masterwork Kintsugi');
+    expect(report.signature).toMatch(/^EV-S-[0-9A-F]{4}$/);
   });
 });

@@ -2,12 +2,14 @@ import { useEffect, useId, useRef } from 'react';
 import { ENDINGS } from '../data/narrative';
 import { computeGlazeBlend } from '../engine/kilnPhysics';
 import { renderRelicCardToCanvas } from '../engine/painterlyCanvas';
+import { computeKintsugiCraftReport, type KintsugiSession } from '../kintsugi';
 import type { EndingId, KilnState } from '../types/game';
 
 interface EndingRelicModalProps {
   open: boolean;
   endingId: EndingId | null;
   state: KilnState;
+  kintsugi: KintsugiSession;
   onClose: () => void;
   onReplay: () => void;
 }
@@ -16,6 +18,7 @@ export function EndingRelicModal({
   open,
   endingId,
   state,
+  kintsugi,
   onClose,
   onReplay,
 }: EndingRelicModalProps) {
@@ -32,12 +35,12 @@ export function EndingRelicModal({
         dialog.showModal();
       }
       if (cardCanvasRef.current) {
-        renderRelicCardToCanvas(cardCanvasRef.current, state, endingId);
+        renderRelicCardToCanvas(cardCanvasRef.current, state, endingId, kintsugi);
       }
     } else if (dialog.open) {
       dialog.close();
     }
-  }, [open, endingId, state]);
+  }, [open, endingId, state, kintsugi]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -86,6 +89,7 @@ export function EndingRelicModal({
 
   const ending = endingId ? ENDINGS[endingId] : null;
   const blend = computeGlazeBlend(state.primaryGlaze, state.secondaryGlaze);
+  const craftReport = computeKintsugiCraftReport(kintsugi, blend.blendName, state.peakTempC);
 
   const handleDownloadPng = () => {
     const canvas = cardCanvasRef.current;
@@ -160,6 +164,16 @@ export function EndingRelicModal({
                     <tr>
                       <th scope="row">Bellows Strokes</th>
                       <td>{state.bellowsStrokes}</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Kintsugi Craft Grade</th>
+                      <td>
+                        Grade {craftReport.grade}: {craftReport.gradeTitle} ({craftReport.coveragePct}% gold, {craftReport.precisionPct}% precision)
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Relic Signature</th>
+                      <td>{craftReport.signature}</td>
                     </tr>
                     <tr>
                       <th scope="row">Relic Seal</th>

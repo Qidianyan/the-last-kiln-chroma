@@ -2,6 +2,9 @@
 node_modules/
 dist/
 .pnpm-store/
+*.tsbuildinfo
+__pycache__/
+*.pyc
 
 # Intermediate film & trailer render caches (final masters live in ../../materials/)
 film-renderer/out/

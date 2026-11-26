@@ -1,24 +1,34 @@
 import { useEffect, useRef } from 'react';
 import { PainterlyKilnRenderer } from '../engine/painterlyCanvas';
+import type { KintsugiSession } from '../kintsugi';
 import type { KilnState } from '../types/game';
 
 interface KilnStageProps {
   state: KilnState;
+  kintsugi: KintsugiSession;
   bellowsSignal: number;
   echoSignal: number;
   glazeSignal: number;
+  onKintsugiStroke: (toX: number, toY: number, fromX?: number, fromY?: number) => void;
 }
 
 export function KilnStage({
   state,
+  kintsugi,
   bellowsSignal,
   echoSignal,
   glazeSignal,
+  onKintsugiStroke,
 }: KilnStageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<PainterlyKilnRenderer | null>(null);
   const stateRef = useRef<KilnState>(state);
+  const kintsugiRef = useRef<KintsugiSession>(kintsugi);
+  const draggingRef = useRef(false);
+  const lastPtRef = useRef<{ x: number; y: number } | null>(null);
+
   stateRef.current = state;
+  kintsugiRef.current = kintsugi;
 
   useEffect(() => {
     if (!rendererRef.current) {
@@ -88,6 +98,7 @@ export function KilnStage({
         dt,
         stateRef.current,
         reducedMotion,
+        kintsugiRef.current,
       );
       rafId = window.requestAnimationFrame(frame);
     };
@@ -101,9 +112,51 @@ export function KilnStage({
     };
   }, []);
 
+  const interactiveRepair = state.scene === 'vitrification';
+
+  const toNormalized = (ev: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = ev.currentTarget.getBoundingClientRect();
+    return {
+      x: (ev.clientX - rect.left) / Math.max(1, rect.width),
+      y: (ev.clientY - rect.top) / Math.max(1, rect.height),
+    };
+  };
+
   return (
-    <div className="kiln-canvas-layer" aria-hidden="true">
-      <canvas ref={canvasRef} />
+    <div className={`kiln-canvas-layer ${interactiveRepair ? 'kintsugi-interactive' : ''}`}>
+      <canvas
+        ref={canvasRef}
+        aria-label={
+          interactiveRepair
+            ? 'Interactive Kintsugi ceramic fracture repair canvas. Drag across glowing cracks to apply molten gold.'
+            : undefined
+        }
+        aria-hidden={!interactiveRepair}
+        data-testid="kiln-stage-canvas"
+        onPointerDown={(ev) => {
+          if (!interactiveRepair) return;
+          ev.currentTarget.setPointerCapture(ev.pointerId);
+          draggingRef.current = true;
+          const pt = toNormalized(ev);
+          lastPtRef.current = pt;
+          onKintsugiStroke(pt.x, pt.y);
+        }}
+        onPointerMove={(ev) => {
+          if (!interactiveRepair || !draggingRef.current) return;
+          const pt = toNormalized(ev);
+          const prev = lastPtRef.current;
+          lastPtRef.current = pt;
+          onKintsugiStroke(pt.x, pt.y, prev?.x, prev?.y);
+        }}
+        onPointerUp={() => {
+          draggingRef.current = false;
+          lastPtRef.current = null;
+        }}
+        onPointerCancel={() => {
+          draggingRef.current = false;
+          lastPtRef.current = null;
+        }}
+      />
     </div>
   );
 }

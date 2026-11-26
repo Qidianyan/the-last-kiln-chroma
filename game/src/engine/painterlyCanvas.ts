@@ -1,4 +1,10 @@
 import { ENDINGS } from '../data/narrative';
+import {
+  computeBlackbodyRadiation,
+  computeKintsugiCraftReport,
+  stepKintsugiSparks,
+  type KintsugiSession,
+} from '../kintsugi';
 import { computeGlazeBlend, GLAZE_MINERALS, MAX_KILN_TEMP, MIN_KILN_TEMP } from './kilnPhysics';
 import type { EndingId, GlazeBlend, KilnState, SceneId } from '../types/game';
 
@@ -54,11 +60,11 @@ function createSeededRandom(seed: number): () => number {
 }
 
 /**
- * V2 Cinema Stage Renderer:
- * Composites high-resolution oil-painting concept art plates (`public/art/*.png`)
- * with real-time Canvas2D interactive kiln firelight, heat-shimmer blooms,
- * mineral glaze resonance ripples, glowing kintsugi fracture veins, depth-layered
- * drifting embers, warm 35mm film grain, and 2.39:1 obsidian cinema framing.
+ * V4 Cinema Stage Renderer:
+ * Composites high-resolution impasto oil concept plates (`public/art/*.png`)
+ * with physically inspired 1300°C ceramic blackbody thermal radiation flames,
+ * live mineral glaze washes, interactive player-traced Kintsugi gold seams,
+ * flowing gold lacquer sparks, depth-layered drifting embers, and 35mm warm film grain.
  */
 export class PainterlyKilnRenderer {
   private particles: EmberParticle[] = [];
@@ -78,12 +84,12 @@ export class PainterlyKilnRenderer {
 
   public triggerBellowsSurge(): void {
     this.pulseEnergy = Math.min(1.5, this.pulseEnergy + 0.9);
-    for (let i = 0; i < 22; i += 1) {
+    for (let i = 0; i < 24; i += 1) {
       this.particles.push({
         x: 0.44 + (this.rand() - 0.5) * 0.24,
         y: 0.72 + (this.rand() - 0.5) * 0.12,
         vx: (this.rand() - 0.5) * 0.14,
-        vy: -(0.14 + this.rand() * 0.24),
+        vy: -(0.14 + this.rand() * 0.25),
         size: 1.6 + this.rand() * 3.8,
         depth: this.rand(),
         alpha: 0.95,
@@ -189,6 +195,7 @@ export class PainterlyKilnRenderer {
     dtSec: number,
     state: KilnState,
     reducedMotion: boolean,
+    kintsugi?: KintsugiSession,
   ): void {
     const dt = reducedMotion ? 0 : Math.min(0.05, dtSec);
     this.pulseEnergy = Math.max(0, this.pulseEnergy - dt * 1.45);
@@ -205,18 +212,15 @@ export class PainterlyKilnRenderer {
       this.crossfadeProgress = Math.min(1, this.crossfadeProgress + dt * 1.35);
     }
 
-    const heatNorm = Math.max(
-      0,
-      Math.min(1, (state.temperatureC - MIN_KILN_TEMP) / (MAX_KILN_TEMP - MIN_KILN_TEMP)),
-    );
+    const blackbody = computeBlackbodyRadiation(state.temperatureC);
+    const heatNorm = blackbody.normalizedHeat;
     const blend = computeGlazeBlend(state.primaryGlaze, state.secondaryGlaze);
 
     ctx.save();
-    // Base obsidian cinema ground
     ctx.fillStyle = '#0D0A08';
     ctx.fillRect(0, 0, width, height);
 
-    // 1. Oil-Painting Cinema Backdrop (with smooth crossfade between acts)
+    // 1. Oil-Painting Cinema Backdrop (smooth crossfade between acts)
     const prevImg = sharedArtCache[this.prevArtKey];
     const currImg = sharedArtCache[this.activeArtKey];
     if (this.crossfadeProgress < 1 && prevImg) {
@@ -225,7 +229,6 @@ export class PainterlyKilnRenderer {
     if (currImg && currImg.complete && currImg.naturalWidth > 0) {
       this.drawCoverImage(ctx, currImg, width, height, timeSec, this.crossfadeProgress, reducedMotion);
     } else {
-      // Rich warm obsidian-ember atmospheric fallback while image finishes decoding
       const fallbackGrad = ctx.createRadialGradient(
         width * 0.5,
         height * 0.48,
@@ -234,18 +237,18 @@ export class PainterlyKilnRenderer {
         height * 0.5,
         width * 0.65,
       );
-      fallbackGrad.addColorStop(0, '#592914');
+      fallbackGrad.addColorStop(0, blackbody.midHex);
       fallbackGrad.addColorStop(0.5, '#221611');
       fallbackGrad.addColorStop(1, '#0D0A08');
       ctx.fillStyle = fallbackGrad;
       ctx.fillRect(0, 0, width, height);
     }
 
-    // 2. Interactive Kiln Fire Breathing Glow & Bellows Surge
-    this.drawInteractiveHeatLighting(ctx, width, height, timeSec, state, blend, heatNorm);
+    // 2. Physically inspired 1300°C Ceramic Blackbody Thermal Radiation & Multi-Layer Convective Flames
+    this.drawBlackbodyThermalFlames(ctx, width, height, timeSec, state, blend, blackbody, reducedMotion);
 
-    // 3. Interactive Mineral Glaze Ripple & Kintsugi Gold Fracture Veins
-    this.drawGlazeAndKintsugiOverlay(ctx, width, height, timeSec, state, blend, heatNorm);
+    // 3. Interactive Player-Traced Kintsugi Fracture Skeleton & Molten Gold Deposition
+    this.drawInteractiveKintsugiOverlay(ctx, width, height, timeSec, dt, state, blend, heatNorm, kintsugi);
 
     // 4. Acoustic Golden Memory Rings
     this.drawMemoryWaves(ctx, width, height, timeSec, state);
@@ -253,57 +256,108 @@ export class PainterlyKilnRenderer {
     // 5. Depth-Layered Drifting Embers & Warm Ash Snow
     this.updateAndDrawParticles(ctx, width, height, dt, timeSec, state, heatNorm, reducedMotion);
 
-    // 6. 35mm Warm Film Grain, Edge Scrim & Subtle 2.39:1 Obsidian Framing
+    // 6. 35mm Warm Film Grain & Edge Scrim
     this.drawCinemaGradingAndFraming(ctx, width, height, heatNorm);
     ctx.restore();
   }
 
-  private drawInteractiveHeatLighting(
+  private drawBlackbodyThermalFlames(
     ctx: CanvasRenderingContext2D,
     w: number,
     h: number,
     t: number,
     state: KilnState,
     blend: GlazeBlend,
-    heatNorm: number,
+    blackbody: ReturnType<typeof computeBlackbodyRadiation>,
+    reducedMotion: boolean,
   ): void {
-    const breath = 0.8 + 0.2 * Math.sin(t * 3.1) + this.pulseEnergy * 0.55;
-    const isHighFire = state.scene === 'stoking' || state.scene === 'vitrification';
-    const baseStrength = state.scene === 'unsealing' ? 0.14 : isHighFire ? 0.34 : 0.22;
+    const heatNorm = blackbody.normalizedHeat;
+    const breath = reducedMotion
+      ? 0.9
+      : 0.82 + 0.18 * Math.sin(t * (2.6 + heatNorm * 2.2)) + this.pulseEnergy * 0.52;
+    const isFiring = state.scene === 'stoking' || state.scene === 'vitrification';
+    const baseStrength = state.scene === 'unsealing' ? 0.14 : isFiring ? 0.38 : 0.22;
 
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
 
-    // Volumetric radial kiln fire bloom centered on the focal vessel/furnace
-    const fireGlow = ctx.createRadialGradient(w * 0.5, h * 0.48, 24, w * 0.5, h * 0.5, w * 0.46);
-    const alphaCore = Math.min(0.75, (baseStrength + heatNorm * 0.24) * breath);
-    fireGlow.addColorStop(0, `rgba(255, 214, 128, ${(alphaCore * 0.65).toFixed(3)})`);
-    fireGlow.addColorStop(0.42, `rgba(230, 90, 40, ${(alphaCore * 0.55).toFixed(3)})`);
+    // Ceramic blackbody core-to-rim radial radiation bloom
+    const cx = w * 0.5;
+    const cy = h * 0.46;
+    const fireGlow = ctx.createRadialGradient(cx, cy, 18, cx, cy, w * (0.36 + heatNorm * 0.16));
+    fireGlow.addColorStop(0, blackbody.coreHex);
+    fireGlow.addColorStop(0.32, blackbody.midHex);
+    fireGlow.addColorStop(0.68, blackbody.rimHex);
     fireGlow.addColorStop(1, 'rgba(15, 11, 9, 0)');
+    ctx.globalAlpha = Math.min(0.68, (baseStrength + heatNorm * 0.28) * breath);
     ctx.fillStyle = fireGlow;
     ctx.fillRect(0, 0, w, h);
 
+    // Multi-layered convective flame ribbons around the furnace mouth during active kiln firing
+    if ((isFiring || this.pulseEnergy > 0.15) && state.scene !== 'unsealing') {
+      const tongues = 7;
+      const baseY = h * 0.72;
+      const flameIntensity = Math.min(1.2, heatNorm * 0.92 + this.pulseEnergy * 0.55);
+      for (let i = 0; i < tongues; i += 1) {
+        const offset = (i / (tongues - 1) - 0.5) * Math.min(w * 0.34, 410);
+        const phase = reducedMotion ? i * 1.1 : t * (3.1 + (i % 3) * 0.85) + i * 1.3;
+        const sway = Math.sin(phase) * (14 + flameIntensity * 18) * blackbody.flameTurbulence;
+        const fh = (95 + flameIntensity * 170) * (0.74 + 0.26 * Math.cos(i * 1.2));
+        const fw = 28 + flameIntensity * 24;
+
+        const fg = ctx.createLinearGradient(cx + offset, baseY, cx + offset + sway, baseY - fh);
+        fg.addColorStop(0, blackbody.coreHex);
+        fg.addColorStop(0.45, blackbody.midHex);
+        fg.addColorStop(1, 'rgba(184, 58, 34, 0)');
+
+        ctx.globalAlpha = Math.min(0.42, 0.16 + flameIntensity * 0.22);
+        ctx.fillStyle = fg;
+        ctx.beginPath();
+        ctx.moveTo(cx + offset - fw, baseY);
+        ctx.bezierCurveTo(
+          cx + offset - fw * 0.65,
+          baseY - fh * 0.45,
+          cx + offset + sway - fw * 0.2,
+          baseY - fh * 0.8,
+          cx + offset + sway,
+          baseY - fh,
+        );
+        ctx.bezierCurveTo(
+          cx + offset + sway + fw * 0.25,
+          baseY - fh * 0.76,
+          cx + offset + fw * 0.65,
+          baseY - fh * 0.42,
+          cx + offset + fw,
+          baseY,
+        );
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
     // Live mineral glaze pigment atmosphere tint in Act II+
     if (state.glazeMixed || state.scene !== 'hearth') {
-      const glazeHalo = ctx.createRadialGradient(w * 0.5, h * 0.46, 18, w * 0.5, h * 0.46, w * 0.32);
+      const glazeHalo = ctx.createRadialGradient(cx, cy, 18, cx, cy, w * 0.32);
       glazeHalo.addColorStop(0, blend.veinHex);
       glazeHalo.addColorStop(0.55, blend.bodyHex);
       glazeHalo.addColorStop(1, 'rgba(15, 11, 9, 0)');
-      ctx.globalAlpha = this.glazeRippleAge < 1.8 ? 0.28 : 0.11;
+      ctx.globalAlpha = this.glazeRippleAge < 1.8 ? 0.28 : 0.1;
       ctx.fillStyle = glazeHalo;
       ctx.fillRect(0, 0, w, h);
     }
     ctx.restore();
   }
 
-  private drawGlazeAndKintsugiOverlay(
+  private drawInteractiveKintsugiOverlay(
     ctx: CanvasRenderingContext2D,
     w: number,
     h: number,
     t: number,
+    dt: number,
     state: KilnState,
     blend: GlazeBlend,
     heatNorm: number,
+    kintsugi?: KintsugiSession,
   ): void {
     const cx = w * 0.5;
     const cy = h * 0.46;
@@ -322,58 +376,109 @@ export class PainterlyKilnRenderer {
       ctx.restore();
     }
 
-    // Live glowing Kintsugi / thermal stress fracture veins during Vitrification & Dawn
-    const showVeins =
-      state.scene === 'vitrification' ||
-      state.thermalStress > 16 ||
-      state.choiceThree === 'kintsugi' ||
-      state.ending === 'gilded_reliquary';
+    // Render interactive procedural Kintsugi crack skeleton in Act IV & final gilded states
+    const showKintsugi =
+      kintsugi &&
+      (state.scene === 'vitrification' ||
+        state.thermalStress > 16 ||
+        kintsugi.coveragePct > 0 ||
+        state.choiceThree === 'kintsugi' ||
+        state.ending === 'gilded_reliquary');
 
-    if (showVeins) {
-      const isGold = state.choiceThree === 'kintsugi' || state.ending === 'gilded_reliquary';
-      const pulse = 0.72 + 0.28 * Math.sin(t * 4.2);
-      const scale = Math.min(w, h) / 720;
-      const veinColor = isGold ? '#F7DDA0' : '#FF7E42';
-      const glowColor = isGold ? '#DBA13C' : '#E65A28';
+    if (!showKintsugi || !kintsugi) return;
 
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = veinColor;
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = (isGold ? 24 : 16) * pulse;
-      ctx.lineWidth = (isGold ? 2.8 : 2.1) * scale;
-      ctx.globalAlpha = (isGold ? 0.85 : 0.48 + heatNorm * 0.35) * pulse;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+    const interactiveAct = state.scene === 'vitrification';
+    const scale = Math.min(w, h) / 720;
+    const pulse = 0.78 + 0.22 * Math.sin(t * 4.0);
 
-      const paths: Array<Array<[number, number]>> = [
-        [
-          [cx - 18 * scale, cy - 92 * scale],
-          [cx - 34 * scale, cy - 36 * scale],
-          [cx + 12 * scale, cy + 8 * scale],
-          [cx - 24 * scale, cy + 72 * scale],
-        ],
-        [
-          [cx + 12 * scale, cy + 8 * scale],
-          [cx + 58 * scale, cy + 32 * scale],
-          [cx + 76 * scale, cy + 74 * scale],
-        ],
-        [
-          [cx - 34 * scale, cy - 36 * scale],
-          [cx - 78 * scale, cy - 8 * scale],
-        ],
-      ];
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
-      for (const pts of paths) {
+    for (const branch of kintsugi.branches) {
+      const pts = branch.nodeIds.map((id) => kintsugi.nodes[id]!).filter(Boolean);
+      if (pts.length < 2) continue;
+
+      // 1. Raw fractured stoneware fissure + glowing thermal edge
+      ctx.beginPath();
+      pts.forEach((p, idx) => {
+        if (idx === 0) ctx.moveTo(p.x * w, p.y * h);
+        else ctx.lineTo(p.x * w, p.y * h);
+      });
+      ctx.strokeStyle = interactiveAct ? 'rgba(20, 12, 9, 0.92)' : 'rgba(20, 12, 9, 0.45)';
+      ctx.lineWidth = 5.2 * scale;
+      ctx.stroke();
+
+      ctx.strokeStyle = interactiveAct
+        ? `rgba(255, 138, 66, ${(0.55 + heatNorm * 0.35).toFixed(3)})`
+        : 'rgba(230, 90, 40, 0.32)';
+      ctx.lineWidth = 2.0 * scale;
+      ctx.stroke();
+
+      // 2. Segment-by-segment liquid 24k gold deposition wherever the player traced!
+      for (let i = 0; i < pts.length - 1; i += 1) {
+        const a = pts[i]!;
+        const b = pts[i + 1]!;
+        const segGold = Math.min(
+          1,
+          state.ending === 'gilded_reliquary' && kintsugi.coveragePct === 0
+            ? 0.9
+            : (a.gilded + b.gilded) * 0.5,
+        );
+        if (segGold <= 0.04) continue;
+
+        const taper = branch.branchIndex === 0 ? 1.0 - (i / pts.length) * 0.24 : 0.86 - (i / pts.length) * 0.34;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
         ctx.beginPath();
-        pts.forEach(([px, py], i) => {
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        });
+        ctx.moveTo(a.x * w, a.y * h);
+        ctx.lineTo(b.x * w, b.y * h);
+
+        // Warm outer 24k molten gold aura
+        ctx.strokeStyle = '#DBA13C';
+        ctx.shadowColor = '#E65A28';
+        ctx.shadowBlur = 13 * segGold * pulse;
+        ctx.globalAlpha = 0.78 * segGold;
+        ctx.lineWidth = (2.8 + segGold * 2.4) * taper * scale;
         ctx.stroke();
+
+        // Crisp luminous white-gold urushi specular spine
+        ctx.strokeStyle = '#FFF4DC';
+        ctx.shadowColor = '#F7DDA0';
+        ctx.shadowBlur = 7 * segGold;
+        ctx.globalAlpha = 0.88 * segGold;
+        ctx.lineWidth = 1.45 * taper * scale;
+        ctx.stroke();
+        ctx.restore();
       }
-      ctx.restore();
     }
+
+    // Subtle pulsing guide beads on remaining un-gilded nodes during Act IV so tracing affordance is unmistakable
+    if (interactiveAct) {
+      for (let i = 0; i < kintsugi.nodes.length; i += 3) {
+        const node = kintsugi.nodes[i]!;
+        if (node.gilded >= 0.65) continue;
+        const glow = 0.35 + 0.4 * Math.sin(t * 3.6 + i * 0.6);
+        ctx.fillStyle = `rgba(247, 221, 160, ${glow.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(node.x * w, node.y * h, 3.2 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Active molten gold brush sparks
+    const liveSparks = stepKintsugiSparks(kintsugi.sparks, dt);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const sp of liveSparks) {
+      const alpha = Math.max(0, 1 - sp.life / sp.maxLife);
+      ctx.fillStyle = `rgba(255, 240, 194, ${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(sp.x * w, sp.y * h, sp.size * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   private drawMemoryWaves(
@@ -493,7 +598,6 @@ export class PainterlyKilnRenderer {
       }
     }
 
-    // Deep dark cinema edge scrim so top HUD, side controls, and bottom subtitles read cleanly over oil art
     const topShade = ctx.createLinearGradient(0, 0, 0, h * 0.22);
     topShade.addColorStop(0, 'rgba(12, 9, 7, 0.88)');
     topShade.addColorStop(1, 'rgba(12, 9, 7, 0)');
@@ -524,12 +628,14 @@ export class PainterlyKilnRenderer {
 
 /**
  * Generates a high-resolution (1000x1400) museum-grade collectible Ceramic Relic Card PNG
- * showcasing the oil-painting hero art plate, mineral glaze swatches, and real kiln firing curve.
+ * showcasing the oil-painting hero art plate, player's traced Kintsugi grade & unique signature,
+ * mineral glaze swatches, and real 600°C-1300°C kiln firing curve.
  */
 export function renderRelicCardToCanvas(
   canvas: HTMLCanvasElement,
   state: KilnState,
   endingId: EndingId,
+  kintsugi?: KintsugiSession,
 ): void {
   const W = 1000;
   const H = 1400;
@@ -540,6 +646,9 @@ export function renderRelicCardToCanvas(
 
   const ending = ENDINGS[endingId];
   const blend = computeGlazeBlend(state.primaryGlaze, state.secondaryGlaze);
+  const craftReport = kintsugi
+    ? computeKintsugiCraftReport(kintsugi, blend.blendName, state.peakTempC)
+    : null;
 
   ctx.fillStyle = '#0F0B09';
   ctx.fillRect(0, 0, W, H);
@@ -566,8 +675,7 @@ export function renderRelicCardToCanvas(
   ctx.font = 'italic 22px Georgia, "Times New Roman", serif';
   ctx.fillText(ending.subtitle, W / 2, 200);
 
-  // Hero Oil-Painting Plate framed cleanly inside exhibition medallion
-  const portraitBox = { x: 110, y: 235, w: 780, h: 490 };
+  const portraitBox = { x: 110, y: 235, w: 780, h: 480 };
   ctx.save();
   ctx.beginPath();
   ctx.rect(portraitBox.x, portraitBox.y, portraitBox.w, portraitBox.h);
@@ -582,6 +690,7 @@ export function renderRelicCardToCanvas(
     0,
     { ...state, scene: 'unsealing', ending: endingId },
     true,
+    kintsugi,
   );
   ctx.restore();
 
@@ -592,22 +701,26 @@ export function renderRelicCardToCanvas(
   ctx.fillStyle = '#F2E8DA';
   ctx.font = 'italic 23px Georgia, "Times New Roman", serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`“${ending.epigraph}”`, W / 2, 775);
+  ctx.fillText(`“${ending.epigraph}”`, W / 2, 766);
 
-  const statY = 825;
+  const statY = 816;
   ctx.textAlign = 'left';
   ctx.fillStyle = '#9E9182';
   ctx.font = '600 16px ui-monospace, SFMono-Regular, Menlo, monospace';
   ctx.fillText('GLAZE FORMULA', 110, statY);
-  ctx.fillText('PEAK KILN TEMP', 450, statY);
-  ctx.fillText('RELIC SEAL', 710, statY);
+  ctx.fillText('PEAK KILN TEMP', 425, statY);
+  ctx.fillText('KINTSUGI HALLMARK', 670, statY);
 
   ctx.fillStyle = '#FBF7F0';
   ctx.font = '600 24px Georgia, "Times New Roman", serif';
   ctx.fillText(blend.blendName, 110, statY + 34);
-  ctx.fillText(`${Math.round(state.peakTempC)}°C`, 450, statY + 34);
+  ctx.fillText(`${Math.round(state.peakTempC)}°C`, 425, statY + 34);
   ctx.fillStyle = ending.primaryTint;
-  ctx.fillText(ending.sealMark, 710, statY + 34);
+  ctx.fillText(
+    craftReport ? `${craftReport.signature} (${craftReport.grade})` : ending.sealMark,
+    670,
+    statY + 34,
+  );
 
   const primaryMin = GLAZE_MINERALS[state.primaryGlaze];
   const secondaryMin = GLAZE_MINERALS[state.secondaryGlaze];
@@ -625,10 +738,19 @@ export function renderRelicCardToCanvas(
   };
   drawSwatch(110, statY + 68, primaryMin.hex, primaryMin.name);
   drawSwatch(280, statY + 68, secondaryMin.hex, secondaryMin.name);
+  if (craftReport) {
+    ctx.fillStyle = '#F7DDA0';
+    ctx.font = '600 15px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.fillText(
+      `Gold ${craftReport.coveragePct}%  Precision ${craftReport.precisionPct}%`,
+      670,
+      statY + 68,
+    );
+  }
 
   // Kiln Temperature Firing Curve Graph (600°C – 1300°C)
   const gx = 110;
-  const gy = 955;
+  const gy = 950;
   const gw = 780;
   const gh = 265;
 
@@ -721,9 +843,9 @@ export function renderRelicCardToCanvas(
   ctx.font = '15px Georgia, "Times New Roman", serif';
   ctx.textAlign = 'center';
   ctx.fillText(
-    `${ending.relicClassification}  ·  Bellows Strokes: ${state.bellowsStrokes}  ·  The Last Kiln of Ember Valley`,
+    `${ending.relicClassification}  ·  ${craftReport ? craftReport.gradeTitle : ending.sealMark}  ·  Bellows Strokes: ${state.bellowsStrokes}`,
     W / 2,
-    1292,
+    1290,
   );
   ctx.fillStyle = '#DBA13C';
   ctx.font = '600 14px ui-monospace, SFMono-Regular, Menlo, monospace';

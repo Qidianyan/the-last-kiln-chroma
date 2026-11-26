@@ -113,6 +113,12 @@ button {
   pointer-events: none;
 }
 
+.kiln-canvas-layer.kintsugi-interactive {
+  pointer-events: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+
 .kiln-canvas-layer canvas {
   display: block;
   width: 100%;
@@ -222,10 +228,11 @@ button {
   color: var(--gold-luminous);
 }
 
-/* Main Stage Grid — Unobstructed center viewport for the oil paintings */
+/* Main Stage Grid — Unobstructed center viewport passes pointer events straight to interactive canvas */
 .stage-main {
   position: relative;
   z-index: 5;
+  pointer-events: none;
   display: grid;
   grid-template-rows: auto 1fr auto;
   grid-template-columns: minmax(0, 1fr);
@@ -237,6 +244,7 @@ button {
 }
 
 .scene-banner {
+  pointer-events: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -292,10 +300,79 @@ button {
 }
 
 .side-panel {
+  pointer-events: auto;
   background: var(--kiln-panel-bg);
   border: 1px solid var(--kiln-border);
   border-radius: 4px;
   padding: 0.58rem 0.78rem;
+}
+
+.blackbody-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.42rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  color: var(--gold-luminous);
+}
+
+.blackbody-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--dot-rim);
+  flex-shrink: 0;
+}
+
+.kintsugi-stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.34rem;
+}
+
+.kintsugi-coverage {
+  font-family: var(--font-mono);
+  font-size: 1.38rem;
+  font-weight: 700;
+  color: var(--gold-luminous);
+}
+
+.kintsugi-grade-pill {
+  padding: 0.16rem 0.48rem;
+  border-radius: 3px;
+  border: 1px solid var(--kiln-border-strong);
+  background: var(--gold-tint);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--gold-luminous);
+}
+
+.kintsugi-track {
+  position: relative;
+  height: 8px;
+  background: var(--kiln-track);
+  border: 1px solid var(--kiln-border-subtle);
+  overflow: hidden;
+  margin-bottom: 0.45rem;
+}
+
+.kintsugi-fill {
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--kiln-gold) 0%, var(--gold-luminous) 100%);
+  transition: transform 160ms linear;
+}
+
+.kintsugi-note {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  line-height: 1.42;
+  color: var(--ash-muted);
 }
 
 .panel-heading {
@@ -439,7 +516,8 @@ button {
 
 .glaze-blend-note {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
+  line-height: 1.38;
   color: var(--ash-muted);
   margin: 0.12rem 0 0;
 }
@@ -487,6 +565,7 @@ button {
 
 /* Bottom Dark Cinema Subtitle & Choice Dock */
 .narrative-dock {
+  pointer-events: auto;
   background: var(--kiln-dock-bg);
   border: 1px solid var(--kiln-border);
   border-radius: 4px;
@@ -663,32 +742,32 @@ dialog::backdrop {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.35rem;
+  padding: 0.78rem 1.25rem;
   border-bottom: 1px solid var(--kiln-border);
 }
 
 .dialog-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.42rem;
+  font-size: 1.36rem;
   color: var(--bone-ceramic);
 }
 
 .dialog-subline {
-  margin: 0.16rem 0 0;
+  margin: 0.12rem 0 0;
   font-family: var(--font-ui);
   font-size: 0.78rem;
   color: var(--kiln-gold);
 }
 
 .dialog-body {
-  padding: 1.2rem 1.35rem 1.35rem;
+  padding: 0.9rem 1.25rem 1rem;
 }
 
 .ending-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
-  gap: 1.4rem;
+  grid-template-columns: minmax(250px, 312px) minmax(0, 1fr);
+  gap: 1.25rem;
   align-items: start;
 }
 
@@ -701,30 +780,31 @@ dialog::backdrop {
 }
 
 .ending-epigraph {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.5rem;
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 1.18rem;
+  font-size: 1.08rem;
   color: var(--gold-luminous);
 }
 
 .ending-body-p {
-  margin: 0 0 0.82rem;
+  margin: 0 0 0.52rem;
   color: var(--parchment);
-  font-size: 0.96rem;
+  font-size: 0.9rem;
+  line-height: 1.44;
 }
 
 .ending-meta-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.95rem 0 1.15rem;
-  font-size: 0.84rem;
+  margin: 0.55rem 0 0.78rem;
+  font-size: 0.8rem;
 }
 
 .ending-meta-table th,
 .ending-meta-table td {
   text-align: left;
-  padding: 0.44rem 0.6rem;
+  padding: 0.3rem 0.52rem;
   border-bottom: 1px solid var(--kiln-border-subtle);
 }
 

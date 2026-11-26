@@ -13,6 +13,11 @@ import {
   MIN_KILN_TEMP,
   SCENE_ORDER,
 } from '../engine/kilnPhysics';
+import {
+  computeBlackbodyRadiation,
+  computeKintsugiCraftReport,
+  type KintsugiSession,
+} from '../kintsugi';
 import type {
   ChoiceOneId,
   ChoiceThreeId,
@@ -23,12 +28,15 @@ import type {
 
 interface NarrativeOverlayProps {
   state: KilnState;
+  kintsugi: KintsugiSession;
   activeCueId: string;
   onStoke: () => void;
   onToggleFlue: () => void;
   onListenEcho: () => void;
   onSelectPrimaryGlaze: (mineral: GlazeMineralId) => void;
   onSelectSecondaryGlaze: (mineral: GlazeMineralId) => void;
+  onTraceNextKintsugi: () => void;
+  onResetKintsugi: () => void;
   onChooseOne: (choice: ChoiceOneId) => void;
   onChooseTwo: (choice: ChoiceTwoId) => void;
   onChooseThree: (choice: ChoiceThreeId) => void;
@@ -47,12 +55,15 @@ const MINERAL_SHORT_LABELS: Record<GlazeMineralId, string> = {
 
 export function NarrativeOverlay({
   state,
+  kintsugi,
   activeCueId,
   onStoke,
   onToggleFlue,
   onListenEcho,
   onSelectPrimaryGlaze,
   onSelectSecondaryGlaze,
+  onTraceNextKintsugi,
+  onResetKintsugi,
   onChooseOne,
   onChooseTwo,
   onChooseThree,
@@ -62,7 +73,10 @@ export function NarrativeOverlay({
   const scene = SCENES[state.scene];
   const blend = computeGlazeBlend(state.primaryGlaze, state.secondaryGlaze);
   const zone = getKilnZoneLabel(state.temperatureC);
+  const blackbody = computeBlackbodyRadiation(state.temperatureC);
+  const craftReport = computeKintsugiCraftReport(kintsugi, blend.blendName, state.peakTempC);
   const activeCue = AUDIO_MANIFEST_BY_ID[activeCueId];
+  const isKintsugiAct = state.scene === 'vitrification';
 
   const tempPercent =
     ((state.temperatureC - MIN_KILN_TEMP) / (MAX_KILN_TEMP - MIN_KILN_TEMP)) * 100;
@@ -122,7 +136,7 @@ export function NarrativeOverlay({
       </section>
 
       <div className="kiln-mid-band">
-        {/* Left Instrument: Kiln Thermal Bellows & Flue */}
+        {/* Left Instrument: Kiln Thermal Bellows, Blackbody Radiation & Flue */}
         <aside className="side-panel" aria-label="Kiln firebox telemetry">
           <h3 className="panel-heading">Kiln Pyrometer</h3>
           <div className="thermal-readout">
@@ -148,6 +162,15 @@ export function NarrativeOverlay({
               className="thermal-fill"
               style={{ transform: `scaleX(${Math.max(0.02, tempPercent / 100)})` }}
             />
+          </div>
+
+          <div className="blackbody-row" data-testid="blackbody-stage">
+            <span
+              className="blackbody-swatch"
+              style={{ backgroundColor: blackbody.midHex }}
+              aria-hidden="true"
+            />
+            <span>{blackbody.stageLabel}</span>
           </div>
 
           <div className="stress-row">
@@ -187,65 +210,121 @@ export function NarrativeOverlay({
           </button>
         </aside>
 
-        {/* Center space deliberately kept open so the Canvas2D Kiln & Ceramic Vessel shine */}
+        {/* Center space deliberately kept open so the Canvas2D Kiln & Kintsugi Vessel shine */}
         <div aria-hidden="true" />
 
-        {/* Right Instrument: Mineral Glaze Alchemy */}
-        <aside className="side-panel" aria-label="Mineral glaze workbench">
-          <h3 className="panel-heading">Mineral Glaze Formula</h3>
-          <div className="glaze-summary">
-            <div
-              className="glaze-swatch-dual"
-              style={{
-                background: `linear-gradient(135deg, ${blend.bodyHex} 0%, ${blend.lipHex} 62%, ${blend.veinHex} 100%)`,
-              }}
-            />
-            <div>
-              <div className="glaze-blend-name">{blend.blendName}</div>
-              <p className="glaze-blend-note">{blend.characterNote}</p>
+        {/* Right Instrument: Interactive Kintsugi Workbench in Act IV, Mineral Glaze Alchemy otherwise */}
+        {isKintsugiAct ? (
+          <aside className="side-panel" aria-label="Kintsugi gold seam repair workbench">
+            <h3 className="panel-heading">Kintsugi Gold Seam Repair</h3>
+            <div className="kintsugi-stats-row">
+              <span className="kintsugi-coverage" data-testid="kintsugi-coverage-value">
+                {kintsugi.coveragePct}%
+              </span>
+              <span className="kintsugi-grade-pill" data-testid="kintsugi-grade-pill">
+                Grade {craftReport.grade}
+              </span>
             </div>
-          </div>
 
-          <div className="mineral-group-label">Primary Base Slip</div>
-          <div className="mineral-grid" role="group" aria-label="Primary base glaze mineral">
-            {MINERAL_IDS.map((mId) => {
-              const mineral = GLAZE_MINERALS[mId];
-              return (
-                <button
-                  key={`p-${mId}`}
-                  type="button"
-                  className="mineral-chip"
-                  aria-pressed={state.primaryGlaze === mId}
-                  onClick={() => onSelectPrimaryGlaze(mId)}
-                  data-testid={`primary-glaze-${mId}`}
-                >
-                  <span className="mineral-dot" style={{ backgroundColor: mineral.hex }} />
-                  <span>{MINERAL_SHORT_LABELS[mId]}</span>
-                </button>
-              );
-            })}
-          </div>
+            <div
+              className="kintsugi-track"
+              role="progressbar"
+              aria-label="Kintsugi gold seam coverage"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={kintsugi.coveragePct}
+            >
+              <div
+                className="kintsugi-fill"
+                style={{ transform: `scaleX(${Math.max(0.02, kintsugi.coveragePct / 100)})` }}
+              />
+            </div>
 
-          <div className="mineral-group-label">Secondary Overglaze</div>
-          <div className="mineral-grid" role="group" aria-label="Secondary overglaze mineral">
-            {MINERAL_IDS.map((mId) => {
-              const mineral = GLAZE_MINERALS[mId];
-              return (
-                <button
-                  key={`s-${mId}`}
-                  type="button"
-                  className="mineral-chip"
-                  aria-pressed={state.secondaryGlaze === mId}
-                  onClick={() => onSelectSecondaryGlaze(mId)}
-                  data-testid={`secondary-glaze-${mId}`}
-                >
-                  <span className="mineral-dot" style={{ backgroundColor: mineral.hex }} />
-                  <span>{MINERAL_SHORT_LABELS[mId]}</span>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
+            <div className="stress-row">
+              <span>Precision {kintsugi.precisionPct}%</span>
+              <span>{craftReport.gradeTitle}</span>
+            </div>
+
+            <p className="kintsugi-note">
+              Drag directly across the glowing fracture seams on the vessel to inlay 24k gold dust, or trace branch by branch below.
+            </p>
+
+            <div className="kiln-action-row">
+              <button
+                type="button"
+                className="action-btn primary"
+                onClick={onTraceNextKintsugi}
+                data-testid="kintsugi-trace-btn"
+              >
+                Trace Gold Seam
+              </button>
+              <button
+                type="button"
+                className="action-btn"
+                onClick={onResetKintsugi}
+                data-testid="kintsugi-reset-btn"
+              >
+                Clear Lacquer
+              </button>
+            </div>
+          </aside>
+        ) : (
+          <aside className="side-panel" aria-label="Mineral glaze workbench">
+            <h3 className="panel-heading">Mineral Glaze Formula</h3>
+            <div className="glaze-summary">
+              <div
+                className="glaze-swatch-dual"
+                style={{
+                  background: `linear-gradient(135deg, ${blend.bodyHex} 0%, ${blend.lipHex} 62%, ${blend.veinHex} 100%)`,
+                }}
+              />
+              <div>
+                <div className="glaze-blend-name">{blend.blendName}</div>
+                <p className="glaze-blend-note">{blend.characterNote}</p>
+              </div>
+            </div>
+
+            <div className="mineral-group-label">Primary Base Slip</div>
+            <div className="mineral-grid" role="group" aria-label="Primary base glaze mineral">
+              {MINERAL_IDS.map((mId) => {
+                const mineral = GLAZE_MINERALS[mId];
+                return (
+                  <button
+                    key={`p-${mId}`}
+                    type="button"
+                    className="mineral-chip"
+                    aria-pressed={state.primaryGlaze === mId}
+                    onClick={() => onSelectPrimaryGlaze(mId)}
+                    data-testid={`primary-glaze-${mId}`}
+                  >
+                    <span className="mineral-dot" style={{ backgroundColor: mineral.hex }} />
+                    <span>{MINERAL_SHORT_LABELS[mId]}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mineral-group-label">Secondary Overglaze</div>
+            <div className="mineral-grid" role="group" aria-label="Secondary overglaze mineral">
+              {MINERAL_IDS.map((mId) => {
+                const mineral = GLAZE_MINERALS[mId];
+                return (
+                  <button
+                    key={`s-${mId}`}
+                    type="button"
+                    className="mineral-chip"
+                    aria-pressed={state.secondaryGlaze === mId}
+                    onClick={() => onSelectSecondaryGlaze(mId)}
+                    data-testid={`secondary-glaze-${mId}`}
+                  >
+                    <span className="mineral-dot" style={{ backgroundColor: mineral.hex }} />
+                    <span>{MINERAL_SHORT_LABELS[mId]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Bottom Literary Subtitle Bar & Sculpted Narrative Choices */}
@@ -268,7 +347,11 @@ export function NarrativeOverlay({
           )}
         </div>
 
-        <p className="hint-line">{scene.interactiveHint}</p>
+        <p className="hint-line">
+          {isKintsugiAct
+            ? 'Drag along the glowing hairline fractures on the stoneware vessel to lay 24k gold dust, or choose how to meet the fracture below.'
+            : scene.interactiveHint}
+        </p>
 
         {state.scene === 'glaze' && isLastLineOfScene && (
           <div className="choice-grid" role="group" aria-label="Pivotal Choice I">
